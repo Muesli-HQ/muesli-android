@@ -66,9 +66,15 @@ class ChatGptAuthManager(context: Context) {
         val state = randomBase64Url()
 
         val server = try {
-            ServerSocket(CALLBACK_PORT)
+            // Loopback-only bind; soTimeout makes the 5-minute cap real —
+            // a bare blocking accept() ignores coroutine cancellation and
+            // would otherwise leak the port forever (causes "port in use"
+            // on the next attempt).
+            ServerSocket(CALLBACK_PORT, 50, java.net.InetAddress.getByName("127.0.0.1")).apply {
+                soTimeout = CALLBACK_TIMEOUT_MS.toInt()
+            }
         } catch (e: Exception) {
-            return@withContext "Sign-in callback port ($CALLBACK_PORT) is already in use."
+            return@withContext "Sign-in callback port ($CALLBACK_PORT) is already in use. Force-stop Muesli and try again."
         }
 
         try {
@@ -87,8 +93,10 @@ class ChatGptAuthManager(context: Context) {
 
                 val code = try {
                     callback.await()
+                } catch (e: java.net.SocketTimeoutException) {
+                    return@coroutineScope "ChatGPT sign-in timed out after 5 minutes. Try again."
                 } catch (e: Exception) {
-                    return@coroutineScope "ChatGPT sign-in timed out or was cancelled."
+                    return@coroutineScope "ChatGPT sign-in was cancelled."
                 }
 
                 when (val error = exchangeCode(code, verifier)) {
