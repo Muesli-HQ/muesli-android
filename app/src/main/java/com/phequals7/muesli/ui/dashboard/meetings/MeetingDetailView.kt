@@ -52,7 +52,9 @@ fun MeetingDetailView(
 
     var transcriptText by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf(meeting.manualNotes) }
-    var activeSection by remember { mutableStateOf(MeetingSection.TRANSCRIPT) }
+    var activeSection by remember {
+        mutableStateOf(if (meeting.summaryText.isNotBlank()) MeetingSection.SUMMARY else MeetingSection.TRANSCRIPT)
+    }
 
     LaunchedEffect(meeting.id) {
         launch {
@@ -80,7 +82,8 @@ fun MeetingDetailView(
     fun shareMeeting() {
         val body = buildString {
             append(meeting.title).append("\n").append(dateLine).append("\n\n")
-            if (notes.isNotBlank()) append("## Notes\n").append(notes).append("\n\n")
+            if (meeting.summaryText.isNotBlank()) append(meeting.summaryText).append("\n\n")
+            if (notes.isNotBlank()) append("## Written Notes\n").append(notes).append("\n\n")
             if (!transcriptText.isNullOrBlank()) append("## Transcript\n").append(transcriptText)
         }
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -174,6 +177,34 @@ fun MeetingDetailView(
 
             item {
                 when (activeSection) {
+                    MeetingSection.SUMMARY -> MuesliSurfaceCard {
+                        Column(modifier = Modifier.padding(MuesliSpacing.s16)) {
+                            when (meeting.summaryState) {
+                                "completed", "failed" -> SelectionContainer {
+                                    Text(
+                                        meeting.summaryText,
+                                        color = colors.textPrimary,
+                                        fontSize = 14.sp,
+                                        lineHeight = 21.sp
+                                    )
+                                }
+                                "generating" -> Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
+                                    Text("Generating meeting notes...", color = colors.textSecondary, fontSize = 13.sp)
+                                }
+                                else -> Text(
+                                    "No AI summary for this meeting. Enable Meeting Summaries and sign in from Settings → AI Summaries before your next meeting.",
+                                    color = colors.textSecondary,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+
                     MeetingSection.TRANSCRIPT -> MuesliSurfaceCard {
                         Column(modifier = Modifier.padding(MuesliSpacing.s16)) {
                             if (transcriptText.isNullOrBlank()) {
@@ -227,6 +258,7 @@ fun MeetingDetailView(
 }
 
 private enum class MeetingSection(val label: String) {
+    SUMMARY("Summary"),
     TRANSCRIPT("Transcript"),
     NOTES("Notes"),
 }

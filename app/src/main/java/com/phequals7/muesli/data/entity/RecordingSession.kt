@@ -22,5 +22,9 @@ data class RecordingSession(
     /** MeetingTemplatePreset id (general, oneOnOne, standup, ...). */
     val templateId: String = "general",
     /** Free-form notes written by the user during/after the meeting. */
-    val manualNotes: String = ""
+    val manualNotes: String = "",
+    /** AI-generated structured notes (or failure notes when generation fails). */
+    val summaryText: String = "",
+    /** "notStarted", "generating", "completed", "failed", "unavailable". */
+    val summaryState: String = "notStarted"
 )

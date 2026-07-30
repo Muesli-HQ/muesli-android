@@ -22,12 +22,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.summaries.ChatGptAuthManager
+import com.phequals7.muesli.summaries.MeetingSummaryClient
 import com.phequals7.muesli.theme.AppearanceController
 import com.phequals7.muesli.theme.MuesliAccentTheme
 import com.phequals7.muesli.theme.MuesliCorners
@@ -58,6 +61,9 @@ fun SettingsTab(store: SharedStore) {
         SettingsSection.MODELS -> SettingsScaffold("Models", onBack = { section = null }) {
             ModelsSettings()
         }
+        SettingsSection.AI_SUMMARIES -> SettingsScaffold("AI Summaries", onBack = { section = null }) {
+            AiSummariesSettings(store)
+        }
         SettingsSection.APPEARANCE -> SettingsScaffold("Appearance", onBack = { section = null }) {
             AppearanceSettings()
         }
@@ -76,6 +82,7 @@ private enum class SettingsSection(
     MEETINGS("Meetings", "Default template and audio retention.", Icons.Default.Groups),
     DICTIONARY("Dictionary", "Filler word removal, custom phrases, names, and acronyms.", Icons.Default.Book),
     MODELS("Models", "Download and manage the on-device Parakeet model.", Icons.Default.Memory),
+    AI_SUMMARIES("AI Summaries", "Meeting summary providers, auth, and model selection.", Icons.Default.AutoAwesome),
     APPEARANCE("Appearance", "Light and dark mode, and app accent.", Icons.Default.Palette),
     ABOUT("About", "Version, profile, and open-source acknowledgements.", Icons.Default.Info),
 }
@@ -483,6 +490,164 @@ private fun ModelsSettings() {
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
+        }
+    }
+}
+
+// ─────────────────────── AI Summaries ───────────────────────
+
+@Composable
+private fun AiSummariesSettings(store: SharedStore) {
+    val context = LocalContext.current
+    val colors = MuesliTheme.colors
+    val scope = rememberCoroutineScope()
+    val authManager = remember { ChatGptAuthManager(context.applicationContext) }
+
+    var summariesEnabled by remember { mutableStateOf(store.summariesEnabled) }
+    var backend by remember { mutableStateOf(store.summaryBackend) }
+    var chatGptModel by remember { mutableStateOf(store.chatGptModel) }
+    var openRouterModel by remember { mutableStateOf(store.openRouterModel) }
+    var apiKeyInput by remember { mutableStateOf(store.openRouterApiKey) }
+    var isSignedIn by remember { mutableStateOf(authManager.isAuthenticated) }
+    var signInInProgress by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
+        SettingsCard {
+            ToggleRow(
+                title = "Meeting Summaries",
+                subtitle = "Structured notes after local transcription. Transcript text is sent to the selected provider only when this is on.",
+                checked = summariesEnabled,
+                onCheckedChange = {
+                    summariesEnabled = it
+                    store.summariesEnabled = it
+                }
+            )
+        }
+
+        SettingsCard {
+            Text("Summary Backend", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            ChoiceRow(
+                title = "ChatGPT",
+                subtitle = "Sign in with your ChatGPT account (primary)",
+                selected = backend == "chatgpt",
+                onClick = { backend = "chatgpt"; store.summaryBackend = "chatgpt" }
+            )
+            ChoiceRow(
+                title = "OpenRouter",
+                subtitle = "Bring your own API key",
+                selected = backend == "openrouter",
+                onClick = { backend = "openrouter"; store.summaryBackend = "openrouter" }
+            )
+        }
+
+        if (backend == "chatgpt") {
+            SettingsCard {
+                Text("ChatGPT Account", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (isSignedIn) colors.syncGreen else colors.textTertiary)
+                    )
+                    Spacer(modifier = Modifier.width(MuesliSpacing.s8))
+                    Text(
+                        if (isSignedIn) "Signed in" else "Not signed in",
+                        color = if (isSignedIn) colors.syncGreen else colors.textSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (signInInProgress) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
+                    }
+                }
+
+                if (!isSignedIn) {
+                    Button(
+                        onClick = {
+                            signInInProgress = true
+                            statusMessage = null
+                            scope.launch {
+                                val error = authManager.signIn { intent -> context.startActivity(intent) }
+                                signInInProgress = false
+                                if (error == null) {
+                                    isSignedIn = true
+                                    statusMessage = null
+                                } else {
+                                    statusMessage = error
+                                }
+                            }
+                        },
+                        enabled = !signInInProgress,
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                        shape = RoundedCornerShape(MuesliCorners.small),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Sign in with ChatGPT", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text(
+                        "Opens a secure browser tab to auth.openai.com. Tokens stay on this device.",
+                        color = colors.textSecondary,
+                        fontSize = 11.sp
+                    )
+                } else {
+                    TextButton(onClick = {
+                        authManager.signOut()
+                        isSignedIn = false
+                    }) {
+                        Text("Sign Out", color = colors.destructive)
+                    }
+                }
+
+                statusMessage?.let {
+                    Text(it, color = colors.destructive, fontSize = 11.sp)
+                }
+            }
+
+            SettingsCard {
+                Text("Summary Model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                MeetingSummaryClient.CHATGPT_MODEL_PRESETS.forEach { preset ->
+                    ChoiceRow(
+                        title = preset,
+                        subtitle = if (preset == "gpt-5.5") "Default" else "Faster, cheaper",
+                        selected = chatGptModel == preset,
+                        onClick = { chatGptModel = preset; store.chatGptModel = preset }
+                    )
+                }
+            }
+        } else {
+            SettingsCard {
+                Text("OpenRouter API Key", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = apiKeyInput,
+                    onValueChange = {
+                        apiKeyInput = it
+                        store.openRouterApiKey = it.trim()
+                    },
+                    placeholder = { Text("sk-or-...", color = colors.textTertiary) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    if (store.openRouterApiKey.isNotBlank()) "Key saved on this device." else "Get a key at openrouter.ai/keys",
+                    color = colors.textSecondary,
+                    fontSize = 11.sp
+                )
+            }
+
+            SettingsCard {
+                Text("Summary Model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                MeetingSummaryClient.OPENROUTER_MODEL_PRESETS.forEach { preset ->
+                    ChoiceRow(
+                        title = preset.substringAfter('/').substringBefore(':'),
+                        subtitle = preset,
+                        selected = openRouterModel == preset,
+                        onClick = { openRouterModel = preset; store.openRouterModel = preset }
+                    )
+                }
+            }
         }
     }
 }

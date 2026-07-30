@@ -210,11 +210,64 @@ class MeetingRecorderService : Service() {
                                     transcriptID = transcript.id,
                                 )
                             )
+                            maybeRunSummary(id, finalText)
                         }
                     }
                 }
                 MeetingRecordingController.onFinished()
                 teardown()
+            }
+        }
+    }
+
+    /**
+     * AI meeting notes (iOS finalizeMeetingTranscript parity): runs after the
+     * transcript is saved when summaries are enabled and the selected backend
+     * has credentials. On failure the raw transcript is preserved inside
+     * failureNotes, mirroring iOS.
+     */
+    private fun maybeRunSummary(sessionId: String, transcript: String) {
+        if (!store.summariesEnabled) return
+
+        val client = com.phequals7.muesli.summaries.MeetingSummaryClient(applicationContext)
+        serviceScope.launch {
+            val session = store.getRecordingSessionById(sessionId) ?: return@launch
+
+            if (transcript.isBlank() || !client.isConfigured()) {
+                store.updateRecordingSession(session.copy(summaryState = "unavailable"))
+                return@launch
+            }
+
+            store.updateRecordingSession(session.copy(summaryState = "generating"))
+            try {
+                val result = client.summarize(
+                    transcript = transcript,
+                    meetingTitle = session.title,
+                    template = MeetingTemplate.fromId(session.templateId),
+                    manualNotesToRetain = session.manualNotes.ifBlank { null },
+                )
+                val latest = store.getRecordingSessionById(sessionId) ?: return@launch
+                store.updateRecordingSession(
+                    latest.copy(
+                        summaryText = result.notes,
+                        summaryState = "completed",
+                        title = result.title,
+                    )
+                )
+            } catch (t: Throwable) {
+                Log.e(TAG, "summary generation failed", t)
+                val latest = store.getRecordingSessionById(sessionId) ?: return@launch
+                store.updateRecordingSession(
+                    latest.copy(
+                        summaryText = client.failureNotes(
+                            transcript = transcript,
+                            meetingTitle = latest.title,
+                            error = t,
+                            manualNotes = latest.manualNotes.ifBlank { null },
+                        ),
+                        summaryState = "failed",
+                    )
+                )
             }
         }
     }

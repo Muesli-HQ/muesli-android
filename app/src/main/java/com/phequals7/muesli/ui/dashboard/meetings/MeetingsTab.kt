@@ -495,6 +495,21 @@ private fun MeetingRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                // iOS row-preview priority: summary first, then manual notes
+                val preview = when {
+                    meeting.summaryText.isNotBlank() -> meeting.summaryText.lineSequence().firstOrNull { it.isNotBlank() }?.removePrefix("#").orEmpty()
+                    meeting.manualNotes.isNotBlank() -> meeting.manualNotes.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+                    else -> ""
+                }
+                if (preview.isNotBlank()) {
+                    Text(
+                        preview.trim().take(80),
+                        color = colors.textTertiary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 if (meeting.errorMessage != null) {
                     Text(meeting.errorMessage, color = colors.destructive, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

@@ -29,6 +29,11 @@ class SharedStore(private val context: Context) {
         private const val KEY_ACCENT_THEME = "accent_theme" // "blue", "green", "slate"
         private const val KEY_DEFAULT_MEETING_TEMPLATE = "default_meeting_template"
         private const val KEY_RETAIN_MEETING_AUDIO = "retain_meeting_audio"
+        private const val KEY_SUMMARIES_ENABLED = "summaries_enabled"
+        private const val KEY_SUMMARY_BACKEND = "summary_backend" // "chatgpt" (primary) or "openrouter"
+        private const val KEY_CHATGPT_MODEL = "chatgpt_model"
+        private const val KEY_OPENROUTER_MODEL = "openrouter_model"
+        private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
     }
 
     // Onboarding settings
@@ -75,6 +80,28 @@ class SharedStore(private val context: Context) {
     var retainMeetingAudio: Boolean
         get() = prefs.getBoolean(KEY_RETAIN_MEETING_AUDIO, true)
         set(value) = prefs.edit().putBoolean(KEY_RETAIN_MEETING_AUDIO, value).apply()
+
+    /** AI meeting summaries master toggle (default off, like iOS). */
+    var summariesEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SUMMARIES_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_SUMMARIES_ENABLED, value).apply()
+
+    /** Summary backend: "chatgpt" (primary, WHAM) or "openrouter" (BYOK). */
+    var summaryBackend: String
+        get() = prefs.getString(KEY_SUMMARY_BACKEND, "chatgpt") ?: "chatgpt"
+        set(value) = prefs.edit().putString(KEY_SUMMARY_BACKEND, value).apply()
+
+    var chatGptModel: String
+        get() = prefs.getString(KEY_CHATGPT_MODEL, "gpt-5.5") ?: "gpt-5.5"
+        set(value) = prefs.edit().putString(KEY_CHATGPT_MODEL, value).apply()
+
+    var openRouterModel: String
+        get() = prefs.getString(KEY_OPENROUTER_MODEL, "stepfun/step-3.5-flash:free") ?: "stepfun/step-3.5-flash:free"
+        set(value) = prefs.edit().putString(KEY_OPENROUTER_MODEL, value).apply()
+
+    var openRouterApiKey: String
+        get() = prefs.getString(KEY_OPENROUTER_API_KEY, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_OPENROUTER_API_KEY, value).apply()
 
     var userProfileName: String
         get() = prefs.getString(KEY_USER_PROFILE_NAME, "") ?: ""
