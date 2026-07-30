@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.browser.customtabs.CustomTabsIntent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -78,13 +77,13 @@ class ChatGptAuthManager(context: Context) {
                     withTimeout(CALLBACK_TIMEOUT_MS) { awaitCallback(server, state) }
                 }
 
+                // Open in the user's full browser (Chrome), not an in-app tab:
+                // cookies/password managers are available and the loopback
+                // callback flow works identically.
                 val url = buildAuthorizeUrl(challenge, state)
-                val customTab = CustomTabsIntent.Builder()
-                    .setShowTitle(true)
-                    .build()
-                customTab.intent.data = Uri.parse(url)
-                customTab.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                launcher(customTab.intent)
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                launcher(browserIntent)
 
                 val code = try {
                     callback.await()

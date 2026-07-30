@@ -94,6 +94,4 @@ dependencies {
   // Networking (AI summaries: OpenRouter + ChatGPT WHAM SSE)
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
-  // Custom Tabs for ChatGPT OAuth sign-in
-  implementation(libs.androidx.browser)
 }

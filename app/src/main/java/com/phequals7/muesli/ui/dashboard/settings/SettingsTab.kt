@@ -587,7 +587,7 @@ private fun AiSummariesSettings(store: SharedStore) {
                         Text("Sign in with ChatGPT", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Text(
-                        "Opens a secure browser tab to auth.openai.com. Tokens stay on this device.",
+                        "Opens auth.openai.com in your browser. Times out after 5 minutes. Tokens stay on this device.",
                         color = colors.textSecondary,
                         fontSize = 11.sp
                     )
