@@ -25,8 +25,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -70,12 +68,6 @@ fun MeetingsTab(
     var titleInput by remember { mutableStateOf("") }
     var selectedTemplate by remember { mutableStateOf(MeetingTemplate.fromId(store.defaultMeetingTemplate)) }
     var searchQuery by remember { mutableStateOf("") }
-    val titleFocusRequester = remember { FocusRequester() }
-
-    // Put the cursor in the title field when the start card is visible
-    LaunchedEffect(MeetingRecordingController.isActive) {
-        if (!MeetingRecordingController.isActive) titleFocusRequester.requestFocus()
-    }
 
     val modelReady = remember { ModelManager(context.applicationContext).isDownloaded() }
 
@@ -176,10 +168,9 @@ fun MeetingsTab(
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
                             shape = RoundedCornerShape(MuesliCorners.small),
-                            // Auto-focus so titling is the first thing you do (user feedback)
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(titleFocusRequester)
+                            // Title is the first field, but the keyboard only
+                            // opens on an explicit tap (user feedback)
+                            modifier = Modifier.fillMaxWidth()
                         )
 
                         TemplatePicker(
