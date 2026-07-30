@@ -1,0 +1,68 @@
+package com.phequals7.muesli.data
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.phequals7.muesli.data.dao.CustomWordDao
+import com.phequals7.muesli.data.dao.DictationResultDao
+import com.phequals7.muesli.data.dao.RecordingSessionDao
+import com.phequals7.muesli.data.dao.TranscriptDao
+import com.phequals7.muesli.data.entity.CustomWord
+import com.phequals7.muesli.data.entity.DictationResult
+import com.phequals7.muesli.data.entity.RecordingSession
+import com.phequals7.muesli.data.entity.Transcript
+
+@Database(
+    entities = [
+        CustomWord::class,
+        DictationResult::class,
+        RecordingSession::class,
+        Transcript::class
+    ],
+    version = 3,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun customWordDao(): CustomWordDao
+    abstract fun dictationResultDao(): DictationResultDao
+    abstract fun recordingSessionDao(): RecordingSessionDao
+    abstract fun transcriptDao(): TranscriptDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        /** Adds DictationResult.durationMs (keeps existing rows). */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE dictation_results ADD COLUMN durationMs INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** Adds RecordingSession.templateId + manualNotes for meeting notes. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recording_sessions ADD COLUMN templateId TEXT NOT NULL DEFAULT 'general'")
+                db.execSQL("ALTER TABLE recording_sessions ADD COLUMN manualNotes TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "muesli_database"
+                )
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .fallbackToDestructiveMigration() // Useful during scaffolding iteration
+                .build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}

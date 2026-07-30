@@ -1,0 +1,111 @@
+package com.phequals7.muesli.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import com.phequals7.muesli.data.entity.CustomWord
+import com.phequals7.muesli.data.entity.DictationResult
+import com.phequals7.muesli.data.entity.RecordingSession
+import com.phequals7.muesli.data.entity.Transcript
+import kotlinx.coroutines.flow.Flow
+import java.util.UUID
+
+class SharedStore(private val context: Context) {
+    private val database = AppDatabase.getDatabase(context)
+    private val customWordDao = database.customWordDao()
+    private val dictationResultDao = database.dictationResultDao()
+    private val recordingSessionDao = database.recordingSessionDao()
+    private val transcriptDao = database.transcriptDao()
+
+    private val prefs: SharedPreferences = context.getSharedPreferences("muesli_prefs", Context.MODE_PRIVATE)
+
+    companion object {
+        private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_ENGINE_TYPE = "engine_type" // "system" or "mock"
+        private const val KEY_FILLER_WORD_REMOVAL = "filler_word_removal"
+        private const val KEY_CUSTOM_DICTIONARY = "custom_dictionary"
+        private const val KEY_USER_PROFILE_NAME = "user_profile_name"
+        private const val KEY_KEEP_MIC_READY = "keep_mic_ready"
+        private const val KEY_APPEARANCE_MODE = "appearance_mode" // "system", "light", "dark"
+        private const val KEY_ACCENT_THEME = "accent_theme" // "blue", "green", "slate"
+        private const val KEY_DEFAULT_MEETING_TEMPLATE = "default_meeting_template"
+        private const val KEY_RETAIN_MEETING_AUDIO = "retain_meeting_audio"
+    }
+
+    // Onboarding settings
+    var isOnboardingCompleted: Boolean
+        get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+        set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, value).apply()
+
+    var engineType: String
+        get() = prefs.getString(KEY_ENGINE_TYPE, "system") ?: "system"
+        set(value) = prefs.edit().putString(KEY_ENGINE_TYPE, value).apply()
+
+    var isFillerWordRemovalEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FILLER_WORD_REMOVAL, true)
+        set(value) = prefs.edit().putBoolean(KEY_FILLER_WORD_REMOVAL, value).apply()
+
+    var isCustomDictionaryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CUSTOM_DICTIONARY, true)
+        set(value) = prefs.edit().putBoolean(KEY_CUSTOM_DICTIONARY, value).apply()
+
+    /**
+     * When enabled, the Muesli keyboard starts dictation as soon as it is
+     * shown — the Android counterpart of the iOS "Keep mic ready" session mode.
+     */
+    var keepMicReady: Boolean
+        get() = prefs.getBoolean(KEY_KEEP_MIC_READY, false)
+        set(value) = prefs.edit().putBoolean(KEY_KEEP_MIC_READY, value).apply()
+
+    /** Appearance: "system" (default), "light", or "dark". */
+    var appearanceMode: String
+        get() = prefs.getString(KEY_APPEARANCE_MODE, "system") ?: "system"
+        set(value) = prefs.edit().putString(KEY_APPEARANCE_MODE, value).apply()
+
+    /** Accent theme: "blue" (default), "green", or "slate" (MuesliAccentTheme). */
+    var accentTheme: String
+        get() = prefs.getString(KEY_ACCENT_THEME, "blue") ?: "blue"
+        set(value) = prefs.edit().putString(KEY_ACCENT_THEME, value).apply()
+
+    /** Default meeting template preselected on the Meetings tab. */
+    var defaultMeetingTemplate: String
+        get() = prefs.getString(KEY_DEFAULT_MEETING_TEMPLATE, "general") ?: "general"
+        set(value) = prefs.edit().putString(KEY_DEFAULT_MEETING_TEMPLATE, value).apply()
+
+    /** When false, meeting audio is not retained on disk (text only). */
+    var retainMeetingAudio: Boolean
+        get() = prefs.getBoolean(KEY_RETAIN_MEETING_AUDIO, true)
+        set(value) = prefs.edit().putBoolean(KEY_RETAIN_MEETING_AUDIO, value).apply()
+
+    var userProfileName: String
+        get() = prefs.getString(KEY_USER_PROFILE_NAME, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_USER_PROFILE_NAME, value).apply()
+
+    // Custom Words dictionary
+    fun getCustomWordsFlow(): Flow<List<CustomWord>> = customWordDao.getAllCustomWordsFlow()
+    suspend fun getCustomWords(): List<CustomWord> = customWordDao.getAllCustomWords()
+    suspend fun insertCustomWord(word: CustomWord) = customWordDao.insertCustomWord(word)
+    suspend fun updateCustomWord(word: CustomWord) = customWordDao.updateCustomWord(word)
+    suspend fun deleteCustomWordById(id: String) = customWordDao.deleteCustomWordById(id)
+
+    // Dictation results
+    fun getDictationResultsFlow(): Flow<List<DictationResult>> = dictationResultDao.getAllResultsFlow()
+    suspend fun getDictationResults(): List<DictationResult> = dictationResultDao.getAllResults()
+    suspend fun getDictationResultForRequest(requestId: String): DictationResult? = dictationResultDao.getResultForRequest(requestId)
+    suspend fun insertDictationResult(result: DictationResult) = dictationResultDao.insertResult(result)
+    suspend fun deleteDictationResult(id: String) = dictationResultDao.deleteResult(id)
+
+    // Recording Sessions
+    fun getRecordingSessionsFlow(): Flow<List<RecordingSession>> = recordingSessionDao.getAllSessionsFlow()
+    suspend fun getRecordingSessions(): List<RecordingSession> = recordingSessionDao.getAllSessions()
+    suspend fun getRecordingSessionById(id: String): RecordingSession? = recordingSessionDao.getSessionById(id)
+    suspend fun getRecordingSessionByRequestId(requestId: String): RecordingSession? = recordingSessionDao.getSessionByRequestId(requestId)
+    suspend fun insertRecordingSession(session: RecordingSession) = recordingSessionDao.insertSession(session)
+    suspend fun updateRecordingSession(session: RecordingSession) = recordingSessionDao.updateSession(session)
+    suspend fun deleteRecordingSession(session: RecordingSession) = recordingSessionDao.deleteSession(session)
+
+    // Transcripts
+    fun getTranscriptForSessionFlow(sessionId: String): Flow<Transcript?> = transcriptDao.getTranscriptForSessionFlow(sessionId)
+    suspend fun getTranscriptForSession(sessionId: String): Transcript? = transcriptDao.getTranscriptForSession(sessionId)
+    suspend fun insertTranscript(transcript: Transcript) = transcriptDao.insertTranscript(transcript)
+    suspend fun deleteTranscript(transcript: Transcript) = transcriptDao.deleteTranscript(transcript)
+}

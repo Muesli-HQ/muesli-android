@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Muesli brand colors (ported from muesli-ios Shared/MuesliTheme.swift) -->
+    <color name="muesli_icon_background">#111214</color>
+    <color name="muesli_background_deep">#111214</color>
+    <color name="muesli_brand_blue">#69A1FF</color>
+</resources>
