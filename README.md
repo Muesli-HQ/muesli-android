@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="https://github.com/Muesli-HQ/muesli-android/actions/workflows/ci.yml"><img src="https://github.com/Muesli-HQ/muesli-android/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/platform-Android%207.0%2B-lightgrey?logo=android" alt="Android 7.0+" />
   <img src="https://img.shields.io/badge/status-early%20development-orange" alt="Early development" />
 </p>
