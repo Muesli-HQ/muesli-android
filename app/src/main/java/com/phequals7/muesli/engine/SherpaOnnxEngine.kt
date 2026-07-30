@@ -78,8 +78,14 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
     }
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val recording = AtomicBoolean(false)
     private val cancelled = AtomicBoolean(false)
+
+    /** Engine callbacks always land on the main thread (callers may Toasts/UI). */
+    private fun emitPartial(text: String) = mainHandler.post { onPartial?.invoke(text) }
+    private fun emitFinal(text: String) = mainHandler.post { onFinal?.invoke(text) }
+    private fun emitError(message: String) = mainHandler.post { onErr?.invoke(message) }
 
     private var audioRecord: AudioRecord? = null
     private val lock = Object()
@@ -115,7 +121,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
                 startCapture()
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to start", t)
-                if (!cancelled.get()) onErr?.invoke("Could not start on-device engine: ${t.message}")
+                if (!cancelled.get()) emitError("Could not start on-device engine: ${t.message}")
             }
         }
     }
@@ -130,15 +136,15 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
 
             if (cancelled.get()) return@execute
             if (pcm.size < SAMPLE_RATE / 2) {
-                onFinal?.invoke("")
+                emitFinal("")
                 return@execute
             }
             try {
                 val text = decode(pcm)
-                if (!cancelled.get()) onFinal?.invoke(text)
+                if (!cancelled.get()) emitFinal(text)
             } catch (t: Throwable) {
                 Log.e(TAG, "Final decode failed", t)
-                if (!cancelled.get()) onErr?.invoke("Transcription failed: ${t.message}")
+                if (!cancelled.get()) emitError("Transcription failed: ${t.message}")
             }
         }
     }
@@ -215,7 +221,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
             if (!recording.get() || cancelled.get()) return@execute
             try {
                 val text = decode(snapshot)
-                if (!cancelled.get() && text.isNotBlank()) onPartial?.invoke(text)
+                if (!cancelled.get() && text.isNotBlank()) emitPartial(text)
             } catch (t: Throwable) {
                 Log.w(TAG, "Partial decode failed: ${t.message}")
             }
