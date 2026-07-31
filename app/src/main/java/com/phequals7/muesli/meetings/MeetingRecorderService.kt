@@ -15,6 +15,9 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.k2fsa.sherpa.onnx.SileroVadModelConfig
+import com.k2fsa.sherpa.onnx.Vad
+import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.phequals7.muesli.MainActivity
 import com.phequals7.muesli.R
 import com.phequals7.muesli.data.SharedStore
@@ -22,6 +25,7 @@ import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.data.entity.Transcript
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.model.SpeechModels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,12 +42,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Foreground service that records a meeting and transcribes it on-device.
  *
  * Pipeline (Android counterpart of the iOS StreamingMeetingRecorder):
- *   AudioRecord 16 kHz float → WAV retention (16-bit PCM) + chunk rotation
- *   every [CHUNK_SECONDS]s → sequential Parakeet decode per chunk → merged
- *   live transcript in [MeetingRecordingController] → Transcript row on stop.
+ *   AudioRecord 16 kHz float → WAV retention (16-bit PCM) → Silero VAD
+ *   speech segmentation (bundled model, iOS 3–60 s FluidAudio-VAD parity)
+ *   → sequential Parakeet decode per segment → merged live transcript in
+ *   [MeetingRecordingController] → Transcript row on stop. When speaker
+ *   labels are enabled, the finished WAV is diarized (bundled pyannote +
+ *   TitaNet models) and chunks are prefixed with "Speaker N · m:ss".
  *
- * iOS rotates chunks via FluidAudio VAD (3–60 s); v1 here uses fixed 30 s
- * chunks — the VAD upgrade path is sherpa-onnx Silero (already bundled).
+ * If the VAD cannot be created, chunking falls back to fixed 30 s rotation.
  */
 class MeetingRecorderService : Service() {
 
@@ -57,11 +63,14 @@ class MeetingRecorderService : Service() {
         const val EXTRA_TEMPLATE_ID = "template_id"
 
         private const val SAMPLE_RATE = 16000
-        private const val CHUNK_SECONDS = 30
+        private const val CHUNK_SECONDS = 30 // fallback when VAD is unavailable
         private const val PARTIAL_INTERVAL_MS = 5_000L
         private const val CHANNEL_ID = "meeting_recording"
         private const val NOTIFICATION_ID = 42
     }
+
+    /** A finished audio chunk ready for decode, with its position in the recording. */
+    private data class TimedChunk(val pcm: FloatArray, val startSec: Float, val endSec: Float)
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val decodeExecutor = Executors.newSingleThreadExecutor()
@@ -80,8 +89,11 @@ class MeetingRecorderService : Service() {
 
     private val lock = Object()
     private var currentChunk = FloatArray(0)
-    private val finishedChunks = LinkedBlockingQueue<FloatArray>()
-    private val transcriptParts = mutableListOf<String>()
+    private var currentChunkStartSec = 0f
+    private var samplesCaptured = 0L
+    private var vad: Vad? = null
+    private val finishedChunks = LinkedBlockingQueue<TimedChunk>()
+    private val transcriptParts = mutableListOf<SpeakerLabeler.TimedText>()
     private val decodeBusy = AtomicBoolean(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -111,8 +123,9 @@ class MeetingRecorderService : Service() {
     private fun startRecording(id: String, title: String, templateId: String) {
         if (capturing.get()) return
 
-        if (!ModelManager(this).isDownloaded()) {
-            failSession(id, title, templateId, "Parakeet V3 model is not downloaded")
+        val selectedModel = SpeechModels.selected(this)
+        if (!ModelManager(this, selectedModel).isDownloaded()) {
+            failSession(id, title, templateId, "${selectedModel.shortName} model is not downloaded")
             return
         }
 
@@ -120,8 +133,34 @@ class MeetingRecorderService : Service() {
         sessionTitle = title
         startedAtMs = System.currentTimeMillis()
         transcriptParts.clear()
-        synchronized(lock) { currentChunk = FloatArray(0) }
+        synchronized(lock) {
+            currentChunk = FloatArray(0)
+            currentChunkStartSec = 0f
+            samplesCaptured = 0L
+        }
         finishedChunks.clear()
+        vad = try {
+            Vad(
+                assetManager = assets,
+                config = VadModelConfig(
+                    sileroVadModelConfig = SileroVadModelConfig(
+                        model = "models/silero_vad.onnx",
+                        threshold = 0.5f,
+                        minSilenceDuration = 0.5f,
+                        minSpeechDuration = 0.5f,
+                        windowSize = 512,
+                        // iOS rotates VAD chunks at 3–60 s; 30 s caps decode latency per chunk.
+                        maxSpeechDuration = 30f,
+                    ),
+                    sampleRate = SAMPLE_RATE,
+                    numThreads = 1,
+                    provider = "cpu",
+                ),
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "VAD unavailable, falling back to fixed ${CHUNK_SECONDS}s chunks: ${t.message}")
+            null
+        }
 
         serviceScope.launch {
             store.insertRecordingSession(
@@ -131,7 +170,7 @@ class MeetingRecorderService : Service() {
                     title = title,
                     startedAt = startedAtMs,
                     phase = "recording",
-                    engineIdentifier = "sherpa",
+                    engineIdentifier = selectedModel.id,
                     templateId = templateId,
                 )
             )
@@ -169,10 +208,20 @@ class MeetingRecorderService : Service() {
             }
 
             if (!discard) {
-                // Rotate and decode the final partial chunk
+                // Flush trailing speech out of the VAD, then rotate any
+                // remaining fixed-fallback chunk.
+                vad?.let { v ->
+                    try {
+                        v.flush()
+                        drainVadSegments(v)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "VAD flush failed: ${t.message}")
+                    }
+                }
                 synchronized(lock) {
                     if (currentChunk.isNotEmpty()) {
-                        finishedChunks.offer(currentChunk)
+                        val endSec = samplesCaptured.toFloat() / SAMPLE_RATE
+                        finishedChunks.offer(TimedChunk(currentChunk, currentChunkStartSec, endSec))
                         currentChunk = FloatArray(0)
                     }
                 }
@@ -182,9 +231,28 @@ class MeetingRecorderService : Service() {
             closeWav()
 
             val id = sessionId
-            val finalText = transcriptParts.joinToString("\n\n").trim()
+            val retainAudio = store.retainMeetingAudio
+            var finalText = synchronized(transcriptParts) {
+                transcriptParts.joinToString("\n\n") { it.text }.trim()
+            }
             val endedAt = System.currentTimeMillis()
             val audioName = wavFile?.name
+
+            if (!discard && store.speakerLabelsEnabled && wavFile != null && finalText.isNotBlank()) {
+                finalText = try {
+                    diarizeAndLabel(finalText)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Diarization failed, keeping unlabeled transcript: ${t.message}")
+                    finalText
+                }
+            }
+
+            // Audio retention is user-controlled; the temp WAV written for
+            // diarization is removed when retention is off.
+            if (!retainAudio) {
+                wavFile?.delete()
+            }
+            releaseVad()
 
             serviceScope.launch {
                 if (id != null) {
@@ -199,14 +267,15 @@ class MeetingRecorderService : Service() {
                             val transcript = Transcript(
                                 sessionID = id,
                                 text = finalText,
-                                engineIdentifier = "sherpa"
+                                engineIdentifier = existing.engineIdentifier
+                                    ?: SpeechModels.selected(applicationContext).id
                             )
                             store.insertTranscript(transcript)
                             store.updateRecordingSession(
                                 existing.copy(
                                     phase = "completed",
                                     endedAt = endedAt,
-                                    audioFileName = audioName,
+                                    audioFileName = if (retainAudio) audioName else null,
                                     transcriptID = transcript.id,
                                 )
                             )
@@ -218,6 +287,27 @@ class MeetingRecorderService : Service() {
                 teardown()
             }
         }
+    }
+
+    /** Runs diarization on the recorded WAV and renders a speaker-grouped
+     * transcript. Falls back to the plain text on any inconsistency. */
+    private fun diarizeAndLabel(plainText: String): String {
+        val wav = wavFile ?: return plainText
+        val pcm = readWavSamples(wav)
+        if (pcm.size < SAMPLE_RATE) return plainText
+        val segments = SpeakerDiarizer(applicationContext).diarize(pcm)
+        if (segments.isEmpty()) return plainText
+        val chunks = synchronized(transcriptParts) { transcriptParts.toList() }
+        val labeled = SpeakerLabeler.render(chunks, segments)
+        return labeled.ifBlank { plainText }
+    }
+
+    private fun releaseVad() {
+        try {
+            vad?.release()
+        } catch (_: Throwable) {
+        }
+        vad = null
     }
 
     /**
@@ -281,7 +371,7 @@ class MeetingRecorderService : Service() {
                     title = title.ifEmpty { "Untitled Meeting" },
                     phase = "failed",
                     errorMessage = message,
-                    engineIdentifier = "sherpa",
+                    engineIdentifier = SpeechModels.selected(this@MeetingRecorderService).id,
                     templateId = templateId,
                 )
             )
@@ -303,6 +393,7 @@ class MeetingRecorderService : Service() {
         audioRecord?.release()
         audioRecord = null
         closeWav()
+        releaseVad()
         decodeExecutor.shutdown()
         serviceScope.cancel()
         super.onDestroy()
@@ -325,13 +416,16 @@ class MeetingRecorderService : Service() {
         check(record.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
         audioRecord = record
 
-        // Audio retention is user-controlled (Meetings settings); when off,
-        // the meeting is transcript-only and no WAV is written.
-        if (store.retainMeetingAudio) {
-            wavFile = File(filesDir, "meetings/${sessionId}.wav").apply {
-                parentFile?.mkdirs()
-                writeWavHeader(this, 0)
-            }
+        // The WAV is always written: it feeds diarization at stop. When the
+        // user disabled audio retention it is written under a temp name and
+        // deleted during finalizing.
+        wavFile = if (store.retainMeetingAudio) {
+            File(filesDir, "meetings/${sessionId}.wav")
+        } else {
+            File(filesDir, "meetings/.tmp-${sessionId}.wav")
+        }.apply {
+            parentFile?.mkdirs()
+            writeWavHeader(this, 0)
         }
 
         record.startRecording()
@@ -347,13 +441,39 @@ class MeetingRecorderService : Service() {
                 appendToWav(chunk, read)
                 publishLevel(chunk, read)
 
+                val frame = chunk.copyOf(read)
+                val frameStartSec: Float
                 synchronized(lock) {
-                    currentChunk = currentChunk.copyOf(currentChunk.size + read).also {
-                        System.arraycopy(chunk, 0, it, currentChunk.size, read)
+                    frameStartSec = samplesCaptured.toFloat() / SAMPLE_RATE
+                    samplesCaptured += read
+                }
+
+                val v = vad
+                if (v != null) {
+                    try {
+                        v.acceptWaveform(frame)
+                        drainVadSegments(v)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "VAD failed mid-capture, using fixed chunks: ${t.message}")
+                        try { v.release() } catch (_: Throwable) {}
+                        vad = null
                     }
-                    if (currentChunk.size >= SAMPLE_RATE * CHUNK_SECONDS) {
-                        finishedChunks.offer(currentChunk)
-                        currentChunk = FloatArray(0)
+                } else {
+                    synchronized(lock) {
+                        if (currentChunk.isEmpty()) currentChunkStartSec = frameStartSec
+                        currentChunk = currentChunk.copyOf(currentChunk.size + read).also {
+                            System.arraycopy(frame, 0, it, currentChunk.size, read)
+                        }
+                        if (currentChunk.size >= SAMPLE_RATE * CHUNK_SECONDS) {
+                            finishedChunks.offer(
+                                TimedChunk(
+                                    currentChunk,
+                                    currentChunkStartSec,
+                                    currentChunkStartSec + currentChunk.size.toFloat() / SAMPLE_RATE
+                                )
+                            )
+                            currentChunk = FloatArray(0)
+                        }
                     }
                 }
                 scheduleChunkDecode()
@@ -368,10 +488,24 @@ class MeetingRecorderService : Service() {
                     elapsedSec,
                     lastLevel,
                     lastPartial,
-                    synchronized(transcriptParts) { transcriptParts.joinToString("\n\n") }
+                    synchronized(transcriptParts) { transcriptParts.joinToString("\n\n") { it.text } }
                 )
             }
         }.also { it.start() }
+    }
+
+    /** Pops every completed speech segment out of the VAD into the decode
+     * queue. Must be called after acceptWaveform/flush. */
+    private fun drainVadSegments(v: Vad) {
+        while (!v.empty()) {
+            val segment = v.front()
+            v.pop()
+            if (segment.samples.size < SAMPLE_RATE / 2) continue
+            val startSec = segment.start.toFloat() / SAMPLE_RATE
+            val endSec = startSec + segment.samples.size.toFloat() / SAMPLE_RATE
+            finishedChunks.offer(TimedChunk(segment.samples, startSec, endSec))
+        }
+        scheduleChunkDecode()
     }
 
     @Volatile
@@ -404,12 +538,14 @@ class MeetingRecorderService : Service() {
     /** Decodes every finished chunk currently queued. Must run on decodeExecutor. */
     private fun drainChunkQueue() {
         while (true) {
-            val pcm = finishedChunks.poll() ?: break
-            if (pcm.size < SAMPLE_RATE / 2) continue
+            val chunk = finishedChunks.poll() ?: break
+            if (chunk.pcm.size < SAMPLE_RATE / 2) continue
             try {
-                val text = decode(pcm)
+                val text = decode(chunk.pcm)
                 if (text.isNotBlank()) {
-                    synchronized(transcriptParts) { transcriptParts.add(text) }
+                    synchronized(transcriptParts) {
+                        transcriptParts.add(SpeakerLabeler.TimedText(chunk.startSec, chunk.endSec, text))
+                    }
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Chunk decode failed", t)
@@ -505,6 +641,22 @@ class MeetingRecorderService : Service() {
             raf.seek(0)
             raf.write(header)
         }
+    }
+
+    /** Reads a 16 kHz mono 16-bit WAV (as written by [appendToWav]) back into
+     * float samples for diarization. */
+    private fun readWavSamples(file: File): FloatArray {
+        val bytes = file.readBytes()
+        if (bytes.size <= 44) return FloatArray(0)
+        val count = (bytes.size - 44) / 2
+        val out = FloatArray(count)
+        for (i in 0 until count) {
+            val lo = bytes[44 + i * 2].toInt() and 0xFF
+            val hi = bytes[44 + i * 2 + 1].toInt()
+            val sample = (hi shl 8) or lo
+            out[i] = sample / 32768f
+        }
+        return out
     }
 
     // ── notification ─────────────────────────────────────────────────────

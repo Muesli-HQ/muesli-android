@@ -5,19 +5,30 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import java.io.BufferedInputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Downloads and manages on-device sherpa-onnx ASR models.
+ * Downloads and manages one on-device sherpa-onnx ASR model from the
+ * [SpeechModels] catalog (Android counterpart of the iOS
+ * ModelBackgroundDownloadService).
  *
- * Reference model: NVIDIA Parakeet TDT 0.6B v3 (multilingual, int8),
- * matching the Parakeet v3 model used by muesli-ios via FluidAudio.
- * Files are fetched individually from HuggingFace (no archive extraction).
+ * Files are fetched individually over HTTP (no archive extraction) unless the
+ * model is only distributed as a tar.bz2 — in that case the archive is
+ * downloaded once and extracted ([SpeechModel.packagedAsTarBz2]).
+ * Downloads are resumable: completed files are skipped and a partial file
+ * resumes from its `.part` marker via an HTTP Range request.
  */
-class ModelManager(private val context: Context) {
+class ModelManager(
+    private val context: Context,
+    val model: SpeechModel = SpeechModels.selected(context),
+) {
 
     data class ModelFile(val name: String, val url: String, val sizeBytes: Long)
 
@@ -26,63 +37,50 @@ class ModelManager(private val context: Context) {
         val fileBytesDone: Long,
         val totalBytesDone: Long,
         val totalBytes: Long,
+        val extracting: Boolean = false,
     ) {
         val fraction: Float get() = if (totalBytes > 0) totalBytesDone.toFloat() / totalBytes else 0f
     }
 
-    companion object {
-        const val MODEL_ID = "parakeet-tdt-0.6b-v3-int8"
-        const val DISPLAY_NAME = "Parakeet V3 (multilingual, on-device)"
-
-        private const val HF_BASE =
-            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main"
-
-        val REQUIRED_FILES = listOf(
-            ModelFile("tokens.txt", "$HF_BASE/tokens.txt", 103_936L),
-            ModelFile("joiner.int8.onnx", "$HF_BASE/joiner.int8.onnx", 6_000_000L),
-            ModelFile("decoder.int8.onnx", "$HF_BASE/decoder.int8.onnx", 11_000_000L),
-            ModelFile("encoder.int8.onnx", "$HF_BASE/encoder.int8.onnx", 651_000_000L),
-        )
-
-        val TOTAL_SIZE_BYTES: Long get() = REQUIRED_FILES.sumOf { it.sizeBytes }
-    }
-
     val modelDir: File
-        get() = File(context.filesDir, "models/$MODEL_ID")
+        get() = File(context.filesDir, "models/${model.id}")
 
     fun modelFile(name: String): File = File(modelDir, name)
 
     fun isDownloaded(): Boolean =
-        REQUIRED_FILES.all { modelFile(it.name).let { f -> f.exists() && f.length() > 0 } }
+        model.expectedFiles.all { modelFile(it).let { f -> f.exists() && f.length() > 0 } }
 
     /** True if any partial download state exists (for "resume/reset" UI). */
     fun hasPartialDownload(): Boolean =
-        modelDir.listFiles()?.any { it.name.endsWith(".part") } == true
+        !isDownloaded() && modelDir.listFiles()?.any { it.name.endsWith(".part") || it.name == "model.tar.bz2" } == true
 
     fun downloadedBytes(): Long =
-        REQUIRED_FILES.sumOf { f ->
-            val done = modelFile(f.name)
-            val part = File(modelDir, "${f.name}.part")
-            when {
-                done.exists() -> done.length()
-                part.exists() -> part.length()
-                else -> 0L
+        if (isDownloaded()) {
+            model.expectedFiles.sumOf { modelFile(it).length() }
+        } else {
+            model.files.sumOf { f ->
+                val done = modelFile(f.name)
+                val part = File(modelDir, "${f.name}.part")
+                when {
+                    done.exists() -> done.length()
+                    part.exists() -> part.length()
+                    else -> 0L
+                }
             }
         }
 
     /**
-     * Downloads all required model files sequentially. Resumable: completed
-     * files are skipped and a partially downloaded file resumes from its
-     * `.part` marker via an HTTP Range request.
+     * Downloads all required model files sequentially, then extracts the
+     * archive when the model is packaged as tar.bz2. Resumable.
      */
     suspend fun download(
         onProgress: (DownloadProgress) -> Unit,
     ): Unit = withContext(Dispatchers.IO) {
         modelDir.mkdirs()
-        val totalBytes = TOTAL_SIZE_BYTES
-        var totalDone = REQUIRED_FILES.filter { modelFile(it.name).exists() }.sumOf { it.sizeBytes }
+        val totalBytes = model.totalSizeBytes
+        var totalDone = model.files.filter { modelFile(it.name).exists() }.sumOf { it.sizeBytes }
 
-        for (file in REQUIRED_FILES) {
+        for (file in model.files) {
             ensureActive()
             val dest = modelFile(file.name)
             if (dest.exists() && dest.length() > 0) continue
@@ -138,6 +136,46 @@ class ModelManager(private val context: Context) {
                 conn.disconnect()
             }
         }
+
+        if (model.packagedAsTarBz2) {
+            extractTarBz2(modelFile(model.files.single().name)) { current ->
+                onProgress(
+                    DownloadProgress(
+                        currentFile = current,
+                        fileBytesDone = totalBytes,
+                        totalBytesDone = totalBytes,
+                        totalBytes = totalBytes,
+                        extracting = true,
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * Extracts the files listed in [SpeechModel.requiredOutputs] from a
+     * tar.bz2 archive into [modelDir], then deletes the archive.
+     */
+    private fun extractTarBz2(archive: File, onEntry: (String) -> Unit) {
+        check(archive.exists()) { "Missing archive ${archive.name}" }
+        val wanted = model.requiredOutputs.toMutableSet()
+        TarArchiveInputStream(
+            BZip2CompressorInputStream(BufferedInputStream(FileInputStream(archive)))
+        ).use { tar ->
+            while (true) {
+                val entry = tar.nextEntry ?: break
+                val name = entry.name.substringAfterLast('/')
+                if (name !in wanted) continue
+                onEntry(name)
+                val out = modelFile(name)
+                FileOutputStream(out).use { output ->
+                    tar.copyTo(output, bufferSize = 256 * 1024)
+                }
+                wanted.remove(name)
+            }
+        }
+        check(wanted.isEmpty()) { "Archive is missing: ${wanted.joinToString()}" }
+        archive.delete()
     }
 
     fun deleteModel() {

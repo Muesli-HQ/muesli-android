@@ -101,4 +101,7 @@ dependencies {
   // Networking (AI summaries: OpenRouter + ChatGPT WHAM SSE)
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
+
+  // tar.bz2 extraction for models distributed as archives (Parakeet 110M)
+  implementation(libs.commons.compress)
 }

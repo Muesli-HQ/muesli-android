@@ -29,6 +29,9 @@ import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.model.SpeechModel
+import com.phequals7.muesli.model.SpeechModels
+import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.summaries.ChatGptAuthManager
 import com.phequals7.muesli.summaries.MeetingSummaryClient
 import com.phequals7.muesli.theme.AppearanceController
@@ -59,7 +62,7 @@ fun SettingsTab(store: SharedStore) {
             DictionarySettings(store)
         }
         SettingsSection.MODELS -> SettingsScaffold("Models", onBack = { section = null }) {
-            ModelsSettings()
+            ModelsSettings(store)
         }
         SettingsSection.AI_SUMMARIES -> SettingsScaffold("AI Summaries", onBack = { section = null }) {
             AiSummariesSettings(store)
@@ -81,7 +84,7 @@ private enum class SettingsSection(
     VOICE_NOTES("Voice Notes", "Speech engine, mic readiness, and keyboard setup.", Icons.Default.Keyboard),
     MEETINGS("Meetings", "Default template and audio retention.", Icons.Default.Groups),
     DICTIONARY("Dictionary", "Filler word removal, custom phrases, names, and acronyms.", Icons.Default.Book),
-    MODELS("Models", "Download and manage the on-device Parakeet model.", Icons.Default.Memory),
+    MODELS("Models", "Choose and download on-device Parakeet models.", Icons.Default.Memory),
     AI_SUMMARIES("AI Summaries", "Meeting summary providers, auth, and model selection.", Icons.Default.AutoAwesome),
     APPEARANCE("Appearance", "Light and dark mode, and app accent.", Icons.Default.Palette),
     ABOUT("About", "Version, profile, and open-source acknowledgements.", Icons.Default.Info),
@@ -264,7 +267,7 @@ private fun VoiceNotesSettings(store: SharedStore) {
         SettingsCard {
             Text("Speech Engine", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             ChoiceRow(
-                title = "Parakeet V3 (On-Device)",
+                title = "On-Device (Parakeet)",
                 subtitle = "Sherpa-ONNX, fully local & private",
                 selected = engineType == "sherpa",
                 onClick = { engineType = "sherpa"; store.engineType = "sherpa" }
@@ -316,6 +319,7 @@ private fun MeetingsSettings(store: SharedStore) {
     val colors = MuesliTheme.colors
     var defaultTemplate by remember { mutableStateOf(MeetingTemplate.fromId(store.defaultMeetingTemplate)) }
     var retainAudio by remember { mutableStateOf(store.retainMeetingAudio) }
+    var speakerLabels by remember { mutableStateOf(store.speakerLabelsEnabled) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
@@ -335,6 +339,12 @@ private fun MeetingsSettings(store: SharedStore) {
 
         SettingsCard {
             Text("Recording", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            ToggleRow(
+                title = "Speaker labels",
+                subtitle = "Diarizes the meeting on-device after you stop and groups the transcript by speaker. Adds a short processing step.",
+                checked = speakerLabels,
+                onCheckedChange = { speakerLabels = it; store.speakerLabelsEnabled = it }
+            )
             ToggleRow(
                 title = "Retain meeting audio",
                 subtitle = "Keeps the WAV file on device for future playback and speaker separation.",
@@ -478,14 +488,26 @@ private fun DictionarySettings(store: SharedStore) {
 // ─────────────────────── Models ───────────────────────
 
 @Composable
-private fun ModelsSettings() {
+private fun ModelsSettings(store: SharedStore) {
     val colors = MuesliTheme.colors
+    var selectedId by remember { mutableStateOf(SpeechModels.byId(store.selectedModelId).id) }
+
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
-        OnDeviceModelCard()
+        SpeechModels.all.forEach { model ->
+            SpeechModelCard(
+                model = model,
+                selected = model.id == selectedId,
+                onSelect = {
+                    selectedId = model.id
+                    store.selectedModelId = model.id
+                    SherpaRecognizerHolder.reset()
+                },
+            )
+        }
         SettingsCard {
-            Text("About this model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("About on-device models", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(
-                "NVIDIA Parakeet TDT 0.6B v3 (int8) running via sherpa-onnx. Multilingual, punctuation-aware, and fully on-device — audio never leaves this phone.",
+                "All models run fully on-device via sherpa-onnx — audio never leaves this phone. The selected model is used for voice notes, the keyboard, and meetings.",
                 color = colors.textSecondary,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
@@ -767,25 +789,27 @@ private fun AboutSettings(store: SharedStore) {
  * (resumable, with progress), status display, and deletion.
  */
 @Composable
-internal fun OnDeviceModelCard() {
+internal fun SpeechModelCard(
+    model: SpeechModel,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
     val colors = MuesliTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val modelManager = remember { ModelManager(context.applicationContext) }
+    val modelManager = remember(model.id) { ModelManager(context.applicationContext, model) }
 
-    var isDownloaded by remember { mutableStateOf(modelManager.isDownloaded()) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf<ModelManager.DownloadProgress?>(null) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var downloadJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var isDownloaded by remember(model.id) { mutableStateOf(modelManager.isDownloaded()) }
+    var isDownloading by remember(model.id) { mutableStateOf(false) }
+    var progress by remember(model.id) { mutableStateOf<ModelManager.DownloadProgress?>(null) }
+    var statusMessage by remember(model.id) { mutableStateOf<String?>(null) }
+    var downloadJob by remember(model.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     MuesliSurfaceCard {
         Column(
             modifier = Modifier.padding(MuesliSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
         ) {
-            Text("On-Device Model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
@@ -795,31 +819,49 @@ internal fun OnDeviceModelCard() {
                     modifier = Modifier
                         .size(36.dp)
                         .clip(RoundedCornerShape(MuesliCorners.small))
-                        .background(if (isDownloaded) colors.syncGreenSubtle else colors.brandBlueSubtle),
+                        .background(
+                            when {
+                                selected -> colors.accentSubtle
+                                isDownloaded -> colors.syncGreenSubtle
+                                else -> colors.brandBlueSubtle
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (isDownloaded) Icons.Default.CheckCircle else Icons.Default.CloudDownload,
+                        imageVector = when {
+                            selected -> Icons.Default.CheckCircle
+                            isDownloaded -> Icons.Default.CheckCircle
+                            else -> Icons.Default.CloudDownload
+                        },
                         contentDescription = null,
-                        tint = if (isDownloaded) colors.syncGreen else colors.accent
+                        tint = when {
+                            selected -> colors.accent
+                            isDownloaded -> colors.syncGreen
+                            else -> colors.accent
+                        }
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(ModelManager.DISPLAY_NAME, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(model.displayName, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(model.capabilityLabel, color = colors.accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                     Text(
                         text = when {
-                            isDownloaded -> "Ready · ${modelManager.formatBytes(modelManager.downloadedBytes())} on disk"
+                            isDownloading && progress?.extracting == true -> "Extracting ${progress!!.currentFile}…"
                             isDownloading && progress != null ->
-                                "Downloading ${progress!!.currentFile} · ${modelManager.formatBytes(progress!!.totalBytesDone)} / ${modelManager.formatBytes(progress!!.totalBytes)}"
+                                "Downloading · ${modelManager.formatBytes(progress!!.totalBytesDone)} / ${modelManager.formatBytes(progress!!.totalBytes)}"
+                            isDownloaded -> "Downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} on disk"
                             modelManager.downloadedBytes() > 0 ->
-                                "Partially downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} / ${modelManager.formatBytes(ModelManager.TOTAL_SIZE_BYTES)}"
-                            else -> "Not downloaded · ${modelManager.formatBytes(ModelManager.TOTAL_SIZE_BYTES)} required"
+                                "Partially downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} / ${modelManager.formatBytes(model.totalSizeBytes)}"
+                            else -> "Not downloaded · ${modelManager.formatBytes(model.totalSizeBytes)} required"
                         },
                         color = colors.textSecondary,
                         fontSize = 10.sp
                     )
                 }
             }
+
+            Text(model.detail, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
 
             if (isDownloading && progress != null) {
                 LinearProgressIndicator(
@@ -872,11 +914,23 @@ internal fun OnDeviceModelCard() {
                         )
                     }
                 } else {
+                    if (!selected) {
+                        Button(
+                            onClick = onSelect,
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                            shape = RoundedCornerShape(MuesliCorners.small)
+                        ) {
+                            Text("Use This Model", fontSize = 13.sp)
+                        }
+                    } else {
+                        Text("Active", color = colors.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8))
+                    }
                     TextButton(onClick = {
                         modelManager.deleteModel()
                         isDownloaded = false
                     }) {
-                        Text("Delete Model", color = colors.destructive)
+                        Text("Delete", color = colors.destructive)
                     }
                 }
             }

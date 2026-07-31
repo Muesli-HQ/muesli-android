@@ -34,6 +34,8 @@ class SharedStore(private val context: Context) {
         private const val KEY_CHATGPT_MODEL = "chatgpt_model"
         private const val KEY_OPENROUTER_MODEL = "openrouter_model"
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
+        private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
+        private const val KEY_SPEAKER_LABELS = "speaker_labels"
     }
 
     // Onboarding settings
@@ -106,6 +108,17 @@ class SharedStore(private val context: Context) {
     var userProfileName: String
         get() = prefs.getString(KEY_USER_PROFILE_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_USER_PROFILE_NAME, value).apply()
+
+    /** Selected on-device ASR model (id from the SpeechModels catalog). */
+    var selectedModelId: String
+        get() = prefs.getString(KEY_SELECTED_MODEL_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SELECTED_MODEL_ID, value).apply()
+
+    /** When on, meetings are diarized after stop and transcript chunks are
+     * prefixed with speaker labels (adds post-processing time). */
+    var speakerLabelsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SPEAKER_LABELS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SPEAKER_LABELS, value).apply()
 
     // Custom Words dictionary
     fun getCustomWordsFlow(): Flow<List<CustomWord>> = customWordDao.getAllCustomWordsFlow()

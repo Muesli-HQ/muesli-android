@@ -8,18 +8,22 @@ import android.media.MediaRecorder
 import android.util.Log
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
+import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.model.SpeechModelKind
+import com.phequals7.muesli.model.SpeechModels
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Holds the loaded Parakeet V3 recognizer. Loading the ~620 MB int8 encoder
- * takes a few seconds, so the instance is shared and reused across dictations
- * within the process.
+ * Holds the loaded recognizer for the currently selected speech model.
+ * Loading a large int8 model takes a few seconds, so the instance is shared
+ * and reused across dictations within the process. Switching models in
+ * Settings must go through [reset] to drop the old recognizer.
  */
 object SherpaRecognizerHolder {
     private const val TAG = "SherpaRecognizer"
@@ -34,6 +38,9 @@ object SherpaRecognizerHolder {
 
     @Volatile
     private var recognizer: OfflineRecognizer? = null
+
+    @Volatile
+    private var loadedModelId: String? = null
 
     /**
      * Background model prewarm for the launch warmup screen (iOS
@@ -53,16 +60,31 @@ object SherpaRecognizerHolder {
         }
     }
 
+    /** Releases the loaded recognizer so the next [get] reloads the selected
+     * model (called when the user switches models in Settings). */
+    @Synchronized
+    fun reset() {
+        recognizer?.release()
+        recognizer = null
+        loadedModelId = null
+        warmState = WarmState.IDLE
+    }
+
     @Synchronized
     fun get(context: Context): OfflineRecognizer {
-        recognizer?.let { return it }
-
         val models = ModelManager(context.applicationContext)
-        check(models.isDownloaded()) { "Parakeet V3 model is not downloaded" }
+        recognizer?.let {
+            if (loadedModelId == models.model.id) return it
+            // Selected model changed since the recognizer was loaded.
+            it.release()
+            recognizer = null
+            loadedModelId = null
+        }
 
-        val config = OfflineRecognizerConfig(
-            featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
-            modelConfig = OfflineModelConfig(
+        check(models.isDownloaded()) { "${models.model.shortName} model is not downloaded" }
+
+        val modelConfig = when (models.model.kind) {
+            SpeechModelKind.NEMO_TRANSDUCER -> OfflineModelConfig(
                 transducer = OfflineTransducerModelConfig(
                     encoder = models.modelFile("encoder.int8.onnx").absolutePath,
                     decoder = models.modelFile("decoder.int8.onnx").absolutePath,
@@ -73,25 +95,40 @@ object SherpaRecognizerHolder {
                 numThreads = 4,
                 provider = "cpu",
                 debug = false,
-            ),
+            )
+            SpeechModelKind.NEMO_CTC -> OfflineModelConfig(
+                nemo = OfflineNemoEncDecCtcModelConfig(
+                    model = models.modelFile("model.int8.onnx").absolutePath,
+                ),
+                tokens = models.modelFile("tokens.txt").absolutePath,
+                modelType = "nemo_ctc",
+                numThreads = 4,
+                provider = "cpu",
+                debug = false,
+            )
+        }
+        val config = OfflineRecognizerConfig(
+            featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
+            modelConfig = modelConfig,
             decodingMethod = "greedy_search",
         )
 
-        Log.i(TAG, "Loading Parakeet V3 model from ${models.modelDir}")
+        Log.i(TAG, "Loading ${models.model.displayName} from ${models.modelDir}")
         val start = System.currentTimeMillis()
         val created = OfflineRecognizer(assetManager = null, config = config)
         Log.i(TAG, "Model loaded in ${System.currentTimeMillis() - start} ms")
         recognizer = created
+        loadedModelId = models.model.id
         return created
     }
 }
 
 /**
- * On-device transcription engine backed by sherpa-onnx running NVIDIA
- * Parakeet TDT 0.6B v3 (multilingual, int8) — the Android counterpart of the
- * FluidAudio/Parakeet runtime used by muesli-ios.
+ * On-device transcription engine backed by sherpa-onnx running the selected
+ * catalog model (Parakeet v3 TDT or Parakeet 110M CTC) — the Android
+ * counterpart of the FluidAudio/Parakeet runtime used by muesli-ios.
  *
- * Parakeet TDT is a non-streaming model, so audio is captured via AudioRecord
+ * Both models are non-streaming, so audio is captured via AudioRecord
  * and decoded on stop. While recording, the accumulated audio is re-decoded
  * every few seconds to produce pseudo-live partial results.
  */
@@ -136,7 +173,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
         onErr = onError
 
         if (!ModelManager(context).isDownloaded()) {
-            onError("Parakeet V3 model is not downloaded. Download it from Settings.")
+            onError("The selected speech model is not downloaded. Download it from Settings.")
             return
         }
 
