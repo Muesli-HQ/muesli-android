@@ -357,9 +357,9 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             PendingIntent.FLAG_IMMUTABLE
         )
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.muesli_app_icon)
-            .setContentTitle("Muesli quick capture")
-            .setContentText("Floating bubble is active")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Quick capture")
+            .setContentText("Tap the Muesli bubble to record")
             .setContentIntent(openApp)
             .setOngoing(true)
             .addAction(0, "Hide for now", hideIntent)

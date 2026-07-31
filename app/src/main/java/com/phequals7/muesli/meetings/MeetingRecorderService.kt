@@ -688,7 +688,7 @@ class MeetingRecorderService : Service() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.muesli_app_icon)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Recording meeting")
             .setContentText(title.ifEmpty { "Muesli" })
             .setContentIntent(openApp)

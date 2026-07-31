@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome status-bar glyph: Muesli waveform bars.
+     Notification small icons are rendered as alpha masks, so this must be
+     a white silhouette on transparency — not the full-color brand mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4.75,9.5h2.5v5h-2.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8.25,6h2.5v12h-2.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11.75,3h2.5v18h-2.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.25,7h2.5v10h-2.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18.75,10h2.5v4h-2.5z" />
+</vector>
