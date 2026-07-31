@@ -2,6 +2,7 @@ package com.phequals7.muesli.ui.dashboard.settings
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.bubble.BubbleService
 import com.phequals7.muesli.model.SpeechModel
 import com.phequals7.muesli.model.SpeechModels
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
@@ -262,6 +264,7 @@ private fun VoiceNotesSettings(store: SharedStore) {
     val colors = MuesliTheme.colors
     var engineType by remember { mutableStateOf(store.engineType) }
     var keepMicReady by remember { mutableStateOf(store.keepMicReady) }
+    var bubbleEnabled by remember { mutableStateOf(store.bubbleEnabled) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
@@ -308,6 +311,30 @@ private fun VoiceNotesSettings(store: SharedStore) {
                 }
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = colors.textTertiary)
             }
+        }
+
+        SettingsCard {
+            Text("Quick Capture", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            ToggleRow(
+                title = "Floating mic bubble",
+                subtitle = "A draggable bubble floats over other apps. Tap it to dictate — the note is saved and copied to your clipboard.",
+                checked = bubbleEnabled && Settings.canDrawOverlays(context),
+                onCheckedChange = { enabled ->
+                    if (enabled && !Settings.canDrawOverlays(context)) {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            )
+                        )
+                    } else {
+                        bubbleEnabled = enabled
+                        store.bubbleEnabled = enabled
+                        val intent = Intent(context, BubbleService::class.java)
+                        if (enabled) context.startService(intent) else context.stopService(intent)
+                    }
+                }
+            )
         }
     }
 }

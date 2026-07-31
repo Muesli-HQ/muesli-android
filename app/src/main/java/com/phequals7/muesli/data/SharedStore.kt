@@ -36,6 +36,7 @@ class SharedStore(private val context: Context) {
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_SPEAKER_LABELS = "speaker_labels"
+        private const val KEY_BUBBLE_ENABLED = "bubble_enabled"
     }
 
     // Onboarding settings
@@ -119,6 +120,11 @@ class SharedStore(private val context: Context) {
     var speakerLabelsEnabled: Boolean
         get() = prefs.getBoolean(KEY_SPEAKER_LABELS, true)
         set(value) = prefs.edit().putBoolean(KEY_SPEAKER_LABELS, value).apply()
+
+    /** Floating quick-capture bubble over other apps (Android-exclusive). */
+    var bubbleEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BUBBLE_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
 
     // Custom Words dictionary
     fun getCustomWordsFlow(): Flow<List<CustomWord>> = customWordDao.getAllCustomWordsFlow()

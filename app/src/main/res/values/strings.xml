@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">Muesli</string>
     <string name="keyboard_name">Muesli Dictation Keyboard</string>
+    <string name="widget_voice_note">Voice Note</string>
+    <string name="tile_voice_note">Voice Note</string>
 </resources>
