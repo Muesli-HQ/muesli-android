@@ -1,25 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Monochrome status-bar glyph: faithful trace of the official Muesli
-     waveform mark (13 rounded bars). Notification small icons render as
-     alpha masks, so this stays a white silhouette on transparency. -->
+     waveform mark (13 rounded bars, ≈72% × 50% of canvas). Notification
+     small icons render as alpha masks, so this stays a white silhouette
+     on transparency. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <group android:strokeWidth="0.9">
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M2.41,9.35 L2.41,14.65" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M4.03,6.9 L4.03,17.1" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M5.65,4.6 L5.65,19.4" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M7.14,3 L7.14,21" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M8.76,3.9 L8.76,20.1" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M10.38,6.7 L10.38,17.3" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M12,9.35 L12,14.65" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M13.62,6.7 L13.62,17.3" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M15.11,3.9 L15.11,20.1" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M16.73,3 L16.73,21" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M18.35,4.6 L18.35,19.4" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M19.97,6.9 L19.97,17.1" />
-        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M21.59,9.35 L21.59,14.65" />
+    <group android:strokeWidth="0.75">
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M3.35,10.23 L3.35,13.77" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M4.81,8.6 L4.81,15.4" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M6.27,7.07 L6.27,16.93" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M7.61,6 L7.61,18" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M9.07,6.6 L9.07,17.4" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M10.54,8.47 L10.54,15.53" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M12,10.23 L12,13.77" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M13.46,8.47 L13.46,15.53" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M14.93,6.6 L14.93,17.4" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M16.39,6 L16.39,18" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M17.73,7.07 L17.73,16.93" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M19.18,8.6 L19.18,15.4" />
+        <path android:strokeColor="#FFFFFF" android:strokeLineCap="round" android:pathData="M20.65,10.23 L20.65,13.77" />
     </group>
 </vector>
