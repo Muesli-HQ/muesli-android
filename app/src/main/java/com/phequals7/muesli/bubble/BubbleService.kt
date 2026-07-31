@@ -170,8 +170,6 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             state = uiState,
                             onStop = { stopDictation() },
                             onDiscard = { discardDictation() },
-                            onCollapse = { collapseCard() },
-                            onDismissService = { hideBubble(); store.bubbleEnabled = false; stopSelf() },
                         )
                     }
                 }
@@ -276,6 +274,7 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     private fun discardDictation() {
+        toast("Recording discarded")
         collapseCard()
     }
 
@@ -363,7 +362,7 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             .setContentText("Floating bubble is active")
             .setContentIntent(openApp)
             .setOngoing(true)
-            .addAction(0, "Hide bubble", hideIntent)
+            .addAction(0, "Hide for now", hideIntent)
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {

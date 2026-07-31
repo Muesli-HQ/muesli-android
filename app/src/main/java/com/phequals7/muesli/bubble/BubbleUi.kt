@@ -2,11 +2,10 @@ package com.phequals7.muesli.bubble
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,13 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,14 +26,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.components.MuesliElapsedBadge
 import com.phequals7.muesli.ui.components.MuesliInlineWaveform
 import com.phequals7.muesli.ui.components.MuesliWaveformMode
 
@@ -63,20 +55,18 @@ class BubbleUiState {
 }
 
 /**
- * Overlay content: a draggable Muesli-blue bubble when collapsed, a compact
- * dictation card (header / waveform / elapsed / stop / discard) when
- * expanded. Colors and shapes mirror the in-app recording hero.
+ * Overlay content: a draggable Muesli-blue bubble when collapsed; a slim
+ * single-row capsule (stop · waveform · elapsed · cancel) while capturing.
+ * Deliberately snug — it floats over content without blocking it.
  */
 @Composable
 fun BubbleOverlay(
     state: BubbleUiState,
     onStop: () -> Unit,
     onDiscard: () -> Unit,
-    onCollapse: () -> Unit,
-    onDismissService: () -> Unit,
 ) {
     if (state.expanded.value) {
-        BubbleCard(state, onStop, onDiscard, onCollapse, onDismissService)
+        BubbleCapsule(state, onStop, onDiscard)
     } else {
         BubbleButton()
     }
@@ -103,133 +93,115 @@ private fun BubbleButton() {
     }
 }
 
+/** Slim floating capsule: [stop] [waveform] [elapsed] [cancel]. */
 @Composable
-private fun BubbleCard(
+private fun BubbleCapsule(
     state: BubbleUiState,
     onStop: () -> Unit,
     onDiscard: () -> Unit,
-    onCollapse: () -> Unit,
-    onDismissService: () -> Unit,
 ) {
     val colors = MuesliTheme.colors
     val captureState = state.state.value
 
-    Column(
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s8),
         modifier = Modifier
-            .width(300.dp)
-            .clip(RoundedCornerShape(MuesliCorners.large))
+            .shadow(12.dp, RoundedCornerShape(32.dp))
+            .clip(RoundedCornerShape(32.dp))
             .background(colors.backgroundRaised)
-            .border(1.dp, colors.surfaceBorder, RoundedCornerShape(MuesliCorners.large))
-            .padding(MuesliSpacing.s16),
-        verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            .border(1.dp, colors.surfaceBorder, RoundedCornerShape(32.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        // Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "muesli",
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.3).sp,
-                modifier = Modifier.weight(1f),
-            )
-            if (captureState == BubbleState.RECORDING || captureState == BubbleState.TRANSCRIBING) {
-                MuesliElapsedBadge(
-                    elapsedSeconds = state.elapsedSeconds.value,
-                    color = if (captureState == BubbleState.TRANSCRIBING) colors.transcribing else colors.recording,
-                )
-            }
-            IconButton(onClick = onCollapse, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Collapse", tint = colors.textTertiary, modifier = Modifier.size(18.dp))
-            }
-        }
-
-        // Waveform / status
         when (captureState) {
             BubbleState.RECORDING -> {
+                // Stop: red circle, white square (plain box — IconButton
+                // enforces a 48dp min touch target and overflows the capsule)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(colors.destructive)
+                        .clickable { onStop() },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(11.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(androidx.compose.ui.graphics.Color.White)
+                    )
+                }
                 MuesliInlineWaveform(
                     mode = MuesliWaveformMode.Level,
                     color = colors.brandBlue,
                     level = state.inputLevel.value,
-                    barCount = 28,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    barCount = 20,
+                    modifier = Modifier.width(120.dp).height(26.dp),
                 )
-                if (state.partialText.value.isNotBlank()) {
-                    Text(
-                        state.partialText.value,
-                        color = colors.textSecondary,
-                        fontSize = 11.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                CapsuleElapsed(state.elapsedSeconds.value, colors.recording)
+                CapsuleCancel(onDiscard, colors)
             }
             BubbleState.TRANSCRIBING -> {
                 MuesliInlineWaveform(
                     mode = MuesliWaveformMode.Waiting,
                     color = colors.transcribing,
                     level = null,
-                    barCount = 28,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    barCount = 20,
+                    modifier = Modifier.width(150.dp).height(26.dp),
                 )
-                Text("Transcribing…", color = colors.textSecondary, fontSize = 11.sp)
+                CapsuleElapsed(state.elapsedSeconds.value, colors.transcribing)
             }
             BubbleState.SAVED -> {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s8),
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(colors.syncGreenSubtle),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(colors.syncGreenSubtle),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = colors.syncGreen, modifier = Modifier.size(14.dp))
-                    }
-                    Text("Saved & copied to clipboard", color = colors.syncGreen, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Icon(Icons.Default.Check, contentDescription = null, tint = colors.syncGreen, modifier = Modifier.size(14.dp))
                 }
+                Text(
+                    "Saved & copied",
+                    color = colors.syncGreen,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
             BubbleState.ERROR -> {
                 Text("Something went wrong", color = colors.destructive, fontSize = 12.sp)
             }
             BubbleState.IDLE -> {}
         }
+    }
+}
 
-        // Actions
-        if (captureState == BubbleState.RECORDING) {
-            Row(horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s8)) {
-                Button(
-                    onClick = onStop,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.destructive),
-                    shape = RoundedCornerShape(MuesliCorners.medium),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text("Stop", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                TextButton(onClick = onDiscard) {
-                    Text("Discard", color = colors.textSecondary, fontSize = 13.sp)
-                }
-            }
-        }
+@Composable
+private fun CapsuleElapsed(seconds: Int, color: androidx.compose.ui.graphics.Color) {
+    Text(
+        "%d:%02d".format(seconds / 60, seconds % 60),
+        color = color,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        fontFamily = FontFamily.Monospace,
+    )
+}
 
-        // Footer: dismiss service affordance
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                "Quick capture",
-                color = colors.textTertiary,
-                fontSize = 10.sp,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onDismissService) {
-                Text("Hide bubble", color = colors.textTertiary, fontSize = 10.sp)
-            }
-        }
+@Composable
+private fun CapsuleCancel(onDiscard: () -> Unit, colors: com.phequals7.muesli.theme.MuesliColors) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .clickable { onDiscard() },
+    ) {
+        Icon(
+            Icons.Default.Close,
+            contentDescription = "Discard recording",
+            tint = colors.textTertiary,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
