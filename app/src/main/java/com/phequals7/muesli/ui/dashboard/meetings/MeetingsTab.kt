@@ -36,6 +36,7 @@ import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.meetings.MeetingRecordingController
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.model.SpeechModels
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
@@ -180,7 +181,7 @@ fun MeetingsTab(
 
                         if (!modelReady) {
                             Text(
-                                "Requires the Parakeet V3 model — download it from Settings first.",
+                                "Requires the ${SpeechModels.selected(context).shortName} model — download it from Settings first.",
                                 color = colors.destructive,
                                 fontSize = 11.sp
                             )

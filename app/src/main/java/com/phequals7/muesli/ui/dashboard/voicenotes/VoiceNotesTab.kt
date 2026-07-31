@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import com.phequals7.muesli.model.SpeechModels
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -374,7 +375,7 @@ fun VoiceNotesTab(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                engineDisplayName(store.engineType),
+                                engineDisplayName(store.engineType, SpeechModels.selected(context).shortName),
                                 color = colors.textSecondary,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -754,8 +755,8 @@ private fun formatWordCount(words: Int): String = when {
     else -> "$words"
 }
 
-private fun engineDisplayName(engineType: String): String = when (engineType) {
-    "sherpa" -> "Parakeet V3 · on-device"
+private fun engineDisplayName(engineType: String, modelName: String): String = when (engineType) {
+    "sherpa" -> "$modelName · on-device"
     "system" -> "System Speech Recognizer"
     else -> "Mock Engine (sandbox)"
 }

@@ -737,6 +737,7 @@ private fun AppearanceSettings() {
 @Composable
 private fun AboutSettings(store: SharedStore) {
     val colors = MuesliTheme.colors
+    val context = LocalContext.current
     var profileName by remember { mutableStateOf(store.userProfileName) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
@@ -766,7 +767,7 @@ private fun AboutSettings(store: SharedStore) {
             }
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Model", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text("Parakeet TDT 0.6B v3 (int8)", color = colors.textPrimary, fontSize = 13.sp)
+                Text(SpeechModels.selected(context).displayName, color = colors.textPrimary, fontSize = 13.sp)
             }
         }
 
