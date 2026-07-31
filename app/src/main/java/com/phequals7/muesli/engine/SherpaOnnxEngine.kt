@@ -24,8 +24,34 @@ import java.util.concurrent.atomic.AtomicBoolean
 object SherpaRecognizerHolder {
     private const val TAG = "SherpaRecognizer"
 
+    enum class WarmState { IDLE, WARMING, READY, FAILED }
+
+    @Volatile
+    var warmState = WarmState.IDLE
+        private set
+
+    private val prewarmExecutor = Executors.newSingleThreadExecutor()
+
     @Volatile
     private var recognizer: OfflineRecognizer? = null
+
+    /**
+     * Background model prewarm for the launch warmup screen (iOS
+     * prewarmModelIfNeeded(reason: "launch_screen") parity). Idempotent.
+     */
+    fun prewarmAsync(context: Context) {
+        if (warmState != WarmState.IDLE) return
+        warmState = WarmState.WARMING
+        prewarmExecutor.execute {
+            try {
+                get(context.applicationContext)
+                warmState = WarmState.READY
+            } catch (t: Throwable) {
+                Log.w(TAG, "Prewarm failed: ${t.message}")
+                warmState = WarmState.FAILED
+            }
+        }
+    }
 
     @Synchronized
     fun get(context: Context): OfflineRecognizer {
