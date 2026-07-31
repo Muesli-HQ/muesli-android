@@ -679,13 +679,30 @@ private fun VoiceNoteRow(
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
+                var expanded by remember { mutableStateOf(false) }
+                var hasOverflow by remember { mutableStateOf(false) }
                 Text(
                     text = item.text,
                     color = colors.textPrimary,
                     fontSize = 14.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { if (!expanded) hasOverflow = it.hasVisualOverflow }
                 )
+                // iOS parity: expand affordance only when the text actually truncates
+                if (hasOverflow || expanded) {
+                    Text(
+                        text = if (expanded) "Show less" else "Show more",
+                        color = colors.accent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .padding(top = MuesliSpacing.s4)
+                            .clip(RoundedCornerShape(MuesliCorners.small))
+                            .clickable { expanded = !expanded }
+                            .padding(vertical = MuesliSpacing.s4)
+                    )
+                }
             }
         }
     }
