@@ -95,6 +95,11 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        // The overlay ComposeView's window recomposer only runs while the
+        // lifecycle is RESUMED — without this the bubble draws once but never
+        // recomposes (tap → card stays invisible).
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         store = SharedStore(applicationContext)
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         AppearanceController.ensureInitialized(this)
@@ -142,12 +147,20 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
 
         val view = DraggableOverlayLayout(this).apply {
-            onTap = { if (uiState.expanded.value) Unit else expandCard(startDictation = true) }
+            onTap = {
+                Log.i(TAG, "Bubble tapped, expanded=${uiState.expanded.value}")
+                if (uiState.expanded.value) Unit else expandCard(startDictation = true)
+            }
             onDrag = { dx, dy ->
                 params.x += dx
                 params.y += dy
                 try { wm.updateViewLayout(this, params) } catch (_: Throwable) {}
             }
+            // Newer Compose resolves the window recomposer from the overlay
+            // window's root view, so the owners must live here too (same fix
+            // as the IME decor view) or setContent crashes.
+            setViewTreeLifecycleOwner(this@BubbleService)
+            setViewTreeSavedStateRegistryOwner(this@BubbleService)
             val compose = ComposeView(context).apply {
                 setViewTreeLifecycleOwner(this@BubbleService)
                 setViewTreeSavedStateRegistryOwner(this@BubbleService)
@@ -188,6 +201,9 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     private fun expandCard(startDictation: Boolean) {
         uiState.expanded.value = true
+        // Overlay windows don't reliably re-measure WRAP_CONTENT on Compose
+        // recomposition alone — force a relayout so the card becomes visible.
+        requestRelayout()
         if (startDictation) startDictation()
     }
 
@@ -195,12 +211,22 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         engine?.cancel()
         engine = null
         uiState.reset()
+        requestRelayout()
+    }
+
+    private fun requestRelayout() {
+        val view = overlayView ?: return
+        val params = overlayParams ?: return
+        view.post {
+            try { wm.updateViewLayout(view, params) } catch (_: Throwable) {}
+        }
     }
 
     // ── dictation ────────────────────────────────────────────────────────
 
     private fun startDictation() {
         if (uiState.state.value == BubbleState.RECORDING) return
+        Log.i(TAG, "startDictation: model downloaded=${ModelManager(this).isDownloaded()}")
         if (!ModelManager(this).isDownloaded()) {
             toast("${SpeechModels.selected(this).shortName} model is not downloaded — open Muesli Settings")
             collapseCard()
@@ -231,6 +257,7 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             onPartialResult = { uiState.partialText.value = it },
             onFinalResult = { text -> finishDictation(text) },
             onError = { err ->
+                Log.e(TAG, "Dictation error: $err")
                 uiState.state.value = BubbleState.ERROR
                 toast(err)
                 serviceScope.launch {
@@ -304,6 +331,8 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     override fun onDestroy() {
         hideBubble()
         serviceScope.cancel()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         super.onDestroy()
     }
@@ -362,7 +391,13 @@ private class DraggableOverlayLayout(context: Context) : FrameLayout(context) {
     private var lastRawY = 0f
     private var dragging = false
 
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    /**
+     * Single choke point for tap-vs-drag. dispatchTouchEvent sees every event
+     * of the gesture even when the Compose child consumes the stream (unlike
+     * onInterceptTouchEvent, which stops being consulted once the child takes
+     * the gesture — the bug that made taps dead).
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downRawX = ev.rawX; downRawY = ev.rawY
@@ -371,35 +406,23 @@ private class DraggableOverlayLayout(context: Context) : FrameLayout(context) {
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!dragging &&
-                    kotlin.math.abs(ev.rawX - downRawX) > slop ||
-                    kotlin.math.abs(ev.rawY - downRawY) > slop
+                    (kotlin.math.abs(ev.rawX - downRawX) > slop ||
+                        kotlin.math.abs(ev.rawY - downRawY) > slop)
                 ) {
                     dragging = true
                 }
-            }
-        }
-        return dragging || super.onInterceptTouchEvent(ev)
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(ev: MotionEvent): Boolean {
-        when (ev.actionMasked) {
-            MotionEvent.ACTION_MOVE -> {
                 if (dragging) {
                     onDrag((ev.rawX - lastRawX).toInt(), (ev.rawY - lastRawY).toInt())
                     lastRawX = ev.rawX; lastRawY = ev.rawY
-                    return true
+                    return true // swallow so the card doesn't click through drags
                 }
             }
             MotionEvent.ACTION_UP -> {
-                if (!dragging) {
-                    onTap()
-                    return true
-                }
+                if (!dragging) onTap()
                 dragging = false
-                return true
             }
+            MotionEvent.ACTION_CANCEL -> dragging = false
         }
-        return super.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
     }
 }

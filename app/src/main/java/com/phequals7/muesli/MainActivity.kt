@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import android.content.Intent
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.model.ModelManager
@@ -37,6 +38,13 @@ class MainActivity : ComponentActivity() {
 
     AppearanceController.ensureInitialized(this)
     enableEdgeToEdge()
+
+    // Restore the quick-capture bubble across app launches when enabled.
+    val store = SharedStore(this)
+    if (store.bubbleEnabled && android.provider.Settings.canDrawOverlays(this)) {
+      startService(Intent(this, com.phequals7.muesli.bubble.BubbleService::class.java))
+    }
+
     setContent {
       MuesliTheme {
         Surface(

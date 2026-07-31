@@ -39,14 +39,15 @@ This repository is suitable for source review, local development, and device tes
 - **On-device transcription** — NVIDIA Parakeet TDT 0.6B v3 (int8, ~620 MB) runs locally through [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) / ONNX Runtime; audio never needs to leave the phone for transcription. Multilingual, punctuation-aware — the same Parakeet model family as Muesli for iOS.
 - **Live dictation waveform** — real-time mic-driven waveform during recording, ported bar-for-bar from the iOS implementation, plus an elapsed-time badge.
 - **Dictation keyboard** — a dictation-only input method: start/stop with live partial results, automatic filler-word removal and custom-dictionary replacements, then insert into the active text field. Works in any app.
+- **Quick capture (Android-exclusive)** — a draggable floating bubble that lives over other apps: tap to dictate into a compact overlay card; the note is saved and copied to the clipboard. Also available as a Quick Settings tile and a home-screen widget. Enable from **Settings → Voice Notes → Quick Capture**.
 - **Keep mic ready** — optional session mode: the keyboard starts listening as soon as it opens.
-- **Meeting recorder** — a foreground service records meetings (with an ongoing notification + stop/discard actions), rotates 30-second audio chunks through Parakeet for live local transcription, and optionally retains the WAV for future playback and speaker separation.
+- **Meeting recorder** — a foreground service records meetings (with an ongoing notification + stop/discard actions), segments speech with a bundled Silero VAD and decodes each segment through Parakeet for live local transcription, then diarizes the finished recording on-device into speaker-labeled transcripts (pyannote + TitaNet, bundled).
 - **Meeting templates** — seven note templates ported from iOS (General, 1:1, Standup, Interview, Lecture, Customer Call, Planning).
 - **Meeting detail** — selectable transcript, manual notes with auto-save, share sheet, and status tracking (recording/completed/failed/cancelled).
 - **Personal dictionary** — custom words with Jaro-Winkler fuzzy matching, phrase replacements, and filler-word filtering applied to both dictation and meeting transcripts.
 - **Usage stats** — streak, total words, words-per-minute, and meeting counts computed from local history.
 - **iOS design parity** — the official Muesli app icon, MuesliTheme design tokens, glass-pill navigation, dark/light mode, and Blue/Green/Slate accent themes.
-- **Model manager** — resumable, cancellable on-device model download straight from HuggingFace, with progress and disk-usage display.
+- **Model catalog** — pick between Parakeet v3 600M (multilingual, transducer) and Parakeet 110M (English, CTC); resumable, cancellable downloads (incl. tar.bz2 extraction), with progress and disk-usage display.
 - **Local storage first** — all data lives in Room/SQLite and SharedPreferences on device. There is no account and no backend.
 
 ---
