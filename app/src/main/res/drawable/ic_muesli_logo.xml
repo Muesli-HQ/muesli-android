@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-color Muesli brand mark, vector-traced from the official raster
+     (muesli_app_icon.png): near-black square + 13 rounded blue bars.
+     Callers clip to rounded corners; crisp at any size (replaces the
+     256px webp for in-app use). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#15171B"
+        android:pathData="M0,0h24v24h-24z" />
+    <group android:strokeWidth="0.9">
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M2.41,9.35 L2.41,14.65" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M4.03,6.9 L4.03,17.1" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M5.65,4.6 L5.65,19.4" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M7.14,3 L7.14,21" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M8.76,3.9 L8.76,20.1" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M10.38,6.7 L10.38,17.3" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M12,9.35 L12,14.65" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M13.62,6.7 L13.62,17.3" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M15.11,3.9 L15.11,20.1" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M16.73,3 L16.73,21" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M18.35,4.6 L18.35,19.4" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M19.97,6.9 L19.97,17.1" />
+        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M21.59,9.35 L21.59,14.65" />
+    </group>
+</vector>

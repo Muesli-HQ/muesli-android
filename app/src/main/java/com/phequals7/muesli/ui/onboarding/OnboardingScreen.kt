@@ -82,7 +82,7 @@ fun OnboardingScreen(
         // Official Muesli brand mark (same asset as the iOS app icon)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(
-                painter = painterResource(id = R.drawable.muesli_app_icon),
+                painter = painterResource(id = R.drawable.ic_muesli_logo),
                 contentDescription = "Muesli logo",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

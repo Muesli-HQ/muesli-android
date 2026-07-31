@@ -83,7 +83,7 @@ fun LaunchWarmupScreen(
                 .offset(y = (-18).dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.muesli_app_icon),
+                painter = painterResource(id = R.drawable.ic_muesli_logo),
                 contentDescription = "Muesli",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

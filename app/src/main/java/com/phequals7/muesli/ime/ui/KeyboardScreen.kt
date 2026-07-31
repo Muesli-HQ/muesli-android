@@ -90,7 +90,7 @@ fun KeyboardScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.muesli_app_icon),
+                        painter = painterResource(id = R.drawable.ic_muesli_logo),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier

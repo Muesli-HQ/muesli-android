@@ -176,7 +176,7 @@ fun VoiceNotesTab(
                 horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.muesli_app_icon),
+                    painter = painterResource(id = R.drawable.ic_muesli_logo),
                     contentDescription = "Muesli logo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
