@@ -786,7 +786,8 @@ private fun AboutSettings(store: SharedStore) {
             Text("Muesli for Android", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Version", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text("1.0 (debug)", color = colors.textPrimary, fontSize = 13.sp)
+                val info = context.packageManager.getPackageInfo(context.packageName, 0)
+                Text("${info.versionName} (${info.longVersionCode})", color = colors.textPrimary, fontSize = 13.sp)
             }
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Speech runtime", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))

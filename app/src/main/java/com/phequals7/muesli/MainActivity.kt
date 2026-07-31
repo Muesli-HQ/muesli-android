@@ -21,6 +21,7 @@ import android.content.Intent
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.model.ModelManager
+import com.phequals7.muesli.model.SpeechModels
 import com.phequals7.muesli.theme.AppearanceController
 import com.phequals7.muesli.theme.MuesliTheme
 import com.phequals7.muesli.ui.launch.LaunchWarmupScreen
@@ -86,8 +87,8 @@ class MainActivity : ComponentActivity() {
             ) {
               LaunchWarmupScreen(
                 warmState = warmState,
-                modelName = "Parakeet V3",
-                versionText = "v${packageManager.getPackageInfo(packageName, 0).versionName} (${packageManager.getPackageInfo(packageName, 0).versionCode})"
+                modelName = SpeechModels.selected(context).shortName,
+                versionText = "v${packageManager.getPackageInfo(packageName, 0).versionName} (${packageManager.getPackageInfo(packageName, 0).longVersionCode})"
               )
             }
           }
