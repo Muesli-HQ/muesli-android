@@ -126,7 +126,7 @@ fun MeetingDetailView(
         ) {
             item {
                 Column {
-                    Text(meeting.title, color = colors.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(meeting.title, color = colors.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
                     Text(dateLine, color = colors.textSecondary, fontSize = 12.sp)
                     if (meeting.errorMessage != null) {
                         Spacer(modifier = Modifier.height(MuesliSpacing.s8))

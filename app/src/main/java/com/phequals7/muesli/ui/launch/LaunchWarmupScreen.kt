@@ -100,7 +100,8 @@ fun LaunchWarmupScreen(
                 "muesli",
                 color = Color.White.copy(alpha = 0.94f),
                 fontSize = 34.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.6).sp
             )
         }
 

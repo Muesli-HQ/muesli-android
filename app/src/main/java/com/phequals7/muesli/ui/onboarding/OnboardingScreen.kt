@@ -94,7 +94,8 @@ fun OnboardingScreen(
                 text = "muesli",
                 color = colors.textPrimary,
                 fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.6).sp
             )
             Text(
                 text = "Premium voice dictation, local & private.",
@@ -139,7 +140,7 @@ fun OnboardingScreen(
                         focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                         unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                     ),
-                    shape = RoundedCornerShape(MuesliCorners.small),
+                    shape = RoundedCornerShape(MuesliCorners.medium),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -173,7 +174,7 @@ fun OnboardingScreen(
                     Button(
                         onClick = { micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO) },
                         colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.small),
+                        shape = RoundedCornerShape(MuesliCorners.medium),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text("Grant", fontSize = 12.sp)
@@ -212,7 +213,7 @@ fun OnboardingScreen(
                             context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.small),
+                        shape = RoundedCornerShape(MuesliCorners.medium),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text("Setup", fontSize = 12.sp)
@@ -237,7 +238,7 @@ fun OnboardingScreen(
                 containerColor = colors.accent,
                 disabledContainerColor = colors.accent.copy(alpha = 0.3f)
             ),
-            shape = RoundedCornerShape(MuesliCorners.small),
+            shape = RoundedCornerShape(MuesliCorners.medium),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)

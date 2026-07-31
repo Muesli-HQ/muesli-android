@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -186,7 +187,8 @@ fun VoiceNotesTab(
                         "muesli",
                         color = colors.textPrimary,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.4).sp
                     )
                     Text(
                         "Local-first voice notes",
@@ -281,7 +283,7 @@ fun VoiceNotesTab(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Voice Note", color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                Text("Voice Note", color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
                                 Text("Ready", color = colors.accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             }
                             Row(
@@ -399,7 +401,7 @@ fun VoiceNotesTab(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Voice Note", color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                Text("Voice Note", color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
                                 Text(
                                     if (isTranscribing) "Transcribing" else "Recording",
                                     color = if (isTranscribing) colors.transcribing else colors.accent,
@@ -549,7 +551,7 @@ fun VoiceNotesTab(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Recent Voice Notes", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Recent Voice Notes", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
                     Text(
                         "${dictationsList.size} saved",
                         color = colors.textSecondary,
@@ -611,8 +613,15 @@ private fun StatCard(
         ) {
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.height(6.dp))
-            Text(value, color = colors.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text(label, color = colors.textSecondary, fontSize = 11.sp)
+            Text(
+                value,
+                color = colors.textPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.2).sp,
+                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
+            )
+            Text(label, color = colors.textSecondary, fontSize = 11.sp, letterSpacing = 0.2.sp)
         }
     }
 }

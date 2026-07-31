@@ -10,6 +10,10 @@ import androidx.compose.ui.unit.sp
 //   title1: title/bold · title2: title2/semibold · title3: headline/semibold
 //   headline: callout/semibold · body: subheadline · transcript: body
 //   callout: footnote · caption: caption / caption-medium
+//
+// Letter-spacing is deliberate (design-taste pass): tight tracking on larger
+// text for a crisp product feel, positive tracking on small text for
+// legibility, and expanded tracking for label styles.
 val Typography =
   Typography(
     // title1() — .system(.title, weight: .bold)
@@ -19,6 +23,7 @@ val Typography =
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
         lineHeight = 34.sp,
+        letterSpacing = (-0.5).sp,
       ),
     // title2() — .system(.title2, weight: .semibold)
     headlineMedium =
@@ -27,6 +32,7 @@ val Typography =
         fontWeight = FontWeight.SemiBold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
+        letterSpacing = (-0.4).sp,
       ),
     // title3() — .system(.headline, weight: .semibold)
     headlineSmall =
@@ -35,6 +41,7 @@ val Typography =
         fontWeight = FontWeight.SemiBold,
         fontSize = 17.sp,
         lineHeight = 22.sp,
+        letterSpacing = (-0.2).sp,
       ),
     // headline() — .system(.callout, weight: .semibold)
     titleMedium =
@@ -43,6 +50,7 @@ val Typography =
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 21.sp,
+        letterSpacing = (-0.15).sp,
       ),
     // transcript() — .system(.body, weight: .regular)
     bodyLarge =
@@ -51,6 +59,7 @@ val Typography =
         fontWeight = FontWeight.Normal,
         fontSize = 17.sp,
         lineHeight = 24.sp,
+        letterSpacing = (-0.15).sp,
       ),
     // body() — .system(.subheadline, weight: .regular)
     bodyMedium =
@@ -59,6 +68,7 @@ val Typography =
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
         lineHeight = 20.sp,
+        letterSpacing = (-0.1).sp,
       ),
     // callout() — .system(.footnote, weight: .regular)
     bodySmall =
@@ -67,14 +77,16 @@ val Typography =
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
         lineHeight = 18.sp,
+        letterSpacing = 0.1.sp,
       ),
-    // caption() — .system(.caption, weight: .regular)
-    labelSmall =
+    // Button / prominent label — Material 3 labelLarge spec
+    labelLarge =
       TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp,
       ),
     // captionMedium() — .system(.caption, weight: .medium)
     labelMedium =
@@ -83,5 +95,15 @@ val Typography =
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
+        letterSpacing = 0.2.sp,
+      ),
+    // caption() — .system(.caption, weight: .regular)
+    labelSmall =
+      TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.2.sp,
       ),
   )

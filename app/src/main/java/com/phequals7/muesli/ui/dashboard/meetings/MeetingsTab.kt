@@ -109,7 +109,7 @@ fun MeetingsTab(
         // ── Header ──────────────────────────────────────────────────────
         item {
             Column {
-                Text("Meetings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Meetings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
                 Text("Record, write, review.", color = colors.textSecondary, fontSize = 13.sp)
             }
         }
@@ -167,7 +167,7 @@ fun MeetingsTab(
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
-                            shape = RoundedCornerShape(MuesliCorners.small),
+                            shape = RoundedCornerShape(MuesliCorners.medium),
                             // Title is the first field, but the keyboard only
                             // opens on an explicit tap (user feedback)
                             modifier = Modifier.fillMaxWidth()
@@ -210,7 +210,7 @@ fun MeetingsTab(
         // ── Recent meetings ─────────────────────────────────────────────
         item {
             Column {
-                Text("Recent Meetings", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Recent Meetings", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
                 Text("${meetings.size} saved", color = colors.textSecondary, fontSize = 12.sp)
             }
         }

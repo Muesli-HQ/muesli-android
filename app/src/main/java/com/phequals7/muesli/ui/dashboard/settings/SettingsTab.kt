@@ -103,7 +103,7 @@ private fun SettingsHub(onOpenSection: (SettingsSection) -> Unit) {
     ) {
         item {
             Column {
-                Text("Settings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Settings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
                 Text("Voice notes, meetings, local models, and privacy.", color = colors.textSecondary, fontSize = 13.sp)
             }
         }
@@ -177,7 +177,7 @@ private fun SettingsScaffold(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
             }
-            Text(title, color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -400,7 +400,7 @@ private fun DictionarySettings(store: SharedStore) {
                 Button(
                     onClick = { showAddDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                    shape = RoundedCornerShape(MuesliCorners.small),
+                    shape = RoundedCornerShape(MuesliCorners.medium),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -603,7 +603,7 @@ private fun AiSummariesSettings(store: SharedStore) {
                         },
                         enabled = !signInInProgress,
                         colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.small),
+                        shape = RoundedCornerShape(MuesliCorners.medium),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Sign in with ChatGPT", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -906,7 +906,7 @@ internal fun SpeechModelCard(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.small)
+                        shape = RoundedCornerShape(MuesliCorners.medium)
                     ) {
                         Text(
                             if (modelManager.downloadedBytes() > 0) "Resume Download" else "Download",
@@ -918,7 +918,7 @@ internal fun SpeechModelCard(
                         Button(
                             onClick = onSelect,
                             colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                            shape = RoundedCornerShape(MuesliCorners.small)
+                            shape = RoundedCornerShape(MuesliCorners.medium)
                         ) {
                             Text("Use This Model", fontSize = 13.sp)
                         }
