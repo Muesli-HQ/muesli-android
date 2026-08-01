@@ -20,6 +20,7 @@ class SharedStore(private val context: Context) {
 
     companion object {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_ONBOARDING_USE_CASE = "onboarding_use_case"
         private const val KEY_ENGINE_TYPE = "engine_type" // "system" or "mock"
         private const val KEY_FILLER_WORD_REMOVAL = "filler_word_removal"
         private const val KEY_CUSTOM_DICTIONARY = "custom_dictionary"
@@ -43,6 +44,12 @@ class SharedStore(private val context: Context) {
     var isOnboardingCompleted: Boolean
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, value).apply()
+
+    /** Use case picked in onboarding: "voice_notes", "copy", "keyboard",
+     * "meetings", or "everything" (drives which steps are shown). */
+    var onboardingUseCase: String
+        get() = prefs.getString(KEY_ONBOARDING_USE_CASE, "everything") ?: "everything"
+        set(value) = prefs.edit().putString(KEY_ONBOARDING_USE_CASE, value).apply()
 
     var engineType: String
         get() = prefs.getString(KEY_ENGINE_TYPE, "system") ?: "system"
