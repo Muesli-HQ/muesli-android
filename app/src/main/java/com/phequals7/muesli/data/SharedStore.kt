@@ -52,7 +52,7 @@ class SharedStore(private val context: Context) {
         set(value) = prefs.edit().putString(KEY_ONBOARDING_USE_CASE, value).apply()
 
     var engineType: String
-        get() = prefs.getString(KEY_ENGINE_TYPE, "system") ?: "system"
+        get() = prefs.getString(KEY_ENGINE_TYPE, "sherpa") ?: "sherpa"
         set(value) = prefs.edit().putString(KEY_ENGINE_TYPE, value).apply()
 
     var isFillerWordRemovalEnabled: Boolean
