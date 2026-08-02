@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.R
+import com.phequals7.muesli.audio.AudioInputRouteManager
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.data.entity.RecordingSession
@@ -287,22 +288,7 @@ fun VoiceNotesTab(
                                 Text("Voice Note", color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
                                 Text("Ready", color = colors.accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(MuesliCorners.small))
-                                    .background(colors.surfacePrimary)
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Mic,
-                                    contentDescription = null,
-                                    tint = colors.textSecondary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text("Phone Microphone", color = colors.textSecondary, fontSize = 11.sp)
-                            }
+                            MicSourcePill(store)
                         }
 
                         // Big gradient mic button with halo ring (iOS hero)
@@ -417,24 +403,12 @@ fun VoiceNotesTab(
                         }
 
                         // Mic source pill stays visible while recording (iOS parity)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        MicSourcePill(
+                            store = store,
                             modifier = Modifier
                                 .align(Alignment.End)
                                 .padding(top = MuesliSpacing.s8)
-                                .clip(RoundedCornerShape(MuesliCorners.small))
-                                .background(colors.surfacePrimary)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = null,
-                                tint = colors.textSecondary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Text("Phone Microphone", color = colors.textSecondary, fontSize = 11.sp)
-                        }
+                        )
 
                         // Waveform inside a raised container, "Listening" caption below
                         Column(
@@ -595,6 +569,107 @@ fun VoiceNotesTab(
 }
 
 // ─────────────────────────── components ───────────────────────────
+
+/**
+ * Mic source pill shown on the hero card (idle and recording). Displays the
+ * live input route from [AudioInputRouteManager] and opens a chooser for the
+ * RecordingMicrophonePreference (iOS mic source pill parity).
+ */
+@Composable
+private fun MicSourcePill(
+    store: SharedStore,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val colors = MuesliTheme.colors
+    val routeManager = remember { AudioInputRouteManager(context) }
+    var pref by remember { mutableStateOf(AudioInputRouteManager.MicPreference.fromId(store.micPreference)) }
+    var showChooser by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(MuesliCorners.small))
+            .background(colors.surfacePrimary)
+            .clickable { showChooser = true }
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            Icons.Default.Mic,
+            contentDescription = null,
+            tint = colors.textSecondary,
+            modifier = Modifier.size(13.dp)
+        )
+        Text(routeManager.currentRouteLabel(pref), color = colors.textSecondary, fontSize = 11.sp)
+    }
+
+    if (showChooser) {
+        AlertDialog(
+            onDismissRequest = { showChooser = false },
+            containerColor = colors.backgroundRaised,
+            title = { Text("Recording Microphone", color = colors.textPrimary) },
+            text = {
+                Column {
+                    AudioInputRouteManager.MicPreference.entries.forEach { option ->
+                        val available = routeManager.isAvailable(option)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(MuesliCorners.small))
+                                .clickable(enabled = available) {
+                                    pref = option
+                                    store.micPreference = option.id
+                                    showChooser = false
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    option.label,
+                                    color = if (available) colors.textPrimary else colors.textTertiary,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (option == pref) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                                Text(
+                                    micOptionSubtitle(routeManager, option),
+                                    color = colors.textSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (option == pref) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = null,
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showChooser = false }) {
+                    Text("Cancel", color = colors.textSecondary)
+                }
+            }
+        )
+    }
+}
+
+private fun micOptionSubtitle(
+    routeManager: AudioInputRouteManager,
+    option: AudioInputRouteManager.MicPreference,
+): String = when (option) {
+    AudioInputRouteManager.MicPreference.AUTO -> "Follows the system default route"
+    AudioInputRouteManager.MicPreference.PHONE -> "Built-in phone microphone"
+    AudioInputRouteManager.MicPreference.BLUETOOTH ->
+        if (routeManager.isAvailable(option)) "Connected Bluetooth mic" else "Not connected"
+    AudioInputRouteManager.MicPreference.USB ->
+        if (routeManager.isAvailable(option)) "Connected USB microphone" else "Not connected"
+}
 
 @Composable
 private fun StatCard(

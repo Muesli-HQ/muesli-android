@@ -12,6 +12,8 @@ import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
+import com.phequals7.muesli.audio.AudioInputRouteManager
+import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModelKind
 import com.phequals7.muesli.model.SpeechModels
@@ -153,6 +155,8 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
     private var audioRecord: AudioRecord? = null
     private val lock = Object()
     private var samples = FloatArray(0)
+    private var activeMicPref = AudioInputRouteManager.MicPreference.AUTO
+    private val routeManager by lazy { AudioInputRouteManager(context) }
 
     private var onPartial: ((String) -> Unit)? = null
     private var onFinal: ((String) -> Unit)? = null
@@ -196,6 +200,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
             audioRecord?.stop()
             audioRecord?.release()
             audioRecord = null
+            routeManager.stopBluetoothSco(activeMicPref)
 
             if (cancelled.get()) return@execute
             if (pcm.size < SAMPLE_RATE / 2) {
@@ -221,6 +226,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
         }
         audioRecord?.release()
         audioRecord = null
+        routeManager.stopBluetoothSco(activeMicPref)
         synchronized(lock) { samples = FloatArray(0) }
     }
 
@@ -231,14 +237,24 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_FLOAT
         )
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_FLOAT,
-            maxOf(minBuffer, SAMPLE_RATE) // ~1s buffer
-        )
+        val pref = AudioInputRouteManager.MicPreference.fromId(SharedStore(context).micPreference)
+        activeMicPref = pref
+        // Best-effort BT SCO bring-up for the Bluetooth preference; SCO
+        // support varies by OEM, so failures fall back to the default route.
+        routeManager.startBluetoothSco(pref)
+        val record = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .build()
+            )
+            .setBufferSizeInBytes(maxOf(minBuffer, SAMPLE_RATE)) // ~1s buffer
+            .build()
         check(record.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
+        routeManager.resolveDevice(pref)?.let { record.setPreferredDevice(it) }
 
         audioRecord = record
         record.startRecording()

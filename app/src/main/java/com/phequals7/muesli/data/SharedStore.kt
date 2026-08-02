@@ -38,6 +38,7 @@ class SharedStore(private val context: Context) {
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_SPEAKER_LABELS = "speaker_labels"
         private const val KEY_BUBBLE_ENABLED = "bubble_enabled"
+        private const val KEY_MIC_PREFERENCE = "mic_preference" // "auto", "phone", "bluetooth", "usb"
     }
 
     // Onboarding settings
@@ -132,6 +133,12 @@ class SharedStore(private val context: Context) {
     var bubbleEnabled: Boolean
         get() = prefs.getBoolean(KEY_BUBBLE_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
+
+    /** Recording microphone route: "auto" (default), "phone", "bluetooth", or "usb"
+     * (AudioInputRouteManager.MicPreference ids, iOS RecordingMicrophonePreference parity). */
+    var micPreference: String
+        get() = prefs.getString(KEY_MIC_PREFERENCE, "auto") ?: "auto"
+        set(value) = prefs.edit().putString(KEY_MIC_PREFERENCE, value).apply()
 
     // Custom Words dictionary
     fun getCustomWordsFlow(): Flow<List<CustomWord>> = customWordDao.getAllCustomWordsFlow()

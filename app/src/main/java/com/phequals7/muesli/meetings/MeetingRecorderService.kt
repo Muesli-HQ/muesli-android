@@ -20,6 +20,7 @@ import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.phequals7.muesli.MainActivity
 import com.phequals7.muesli.R
+import com.phequals7.muesli.audio.AudioInputRouteManager
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.data.entity.Transcript
@@ -83,6 +84,7 @@ class MeetingRecorderService : Service() {
     private var startedAtMs: Long = 0
 
     private var audioRecord: AudioRecord? = null
+    private var activeMicPref = AudioInputRouteManager.MicPreference.AUTO
     private var captureThread: Thread? = null
     private var wavFile: File? = null
     private var wavBytesWritten = 0L
@@ -206,6 +208,7 @@ class MeetingRecorderService : Service() {
                 captureThread?.join(2_000)
             } catch (_: InterruptedException) {
             }
+            AudioInputRouteManager(applicationContext).stopBluetoothSco(activeMicPref)
 
             if (!discard) {
                 // Flush trailing speech out of the VAD, then rotate any
@@ -392,6 +395,7 @@ class MeetingRecorderService : Service() {
         }
         audioRecord?.release()
         audioRecord = null
+        AudioInputRouteManager(applicationContext).stopBluetoothSco(activeMicPref)
         closeWav()
         releaseVad()
         decodeExecutor.shutdown()
@@ -406,14 +410,25 @@ class MeetingRecorderService : Service() {
         val minBuffer = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_FLOAT
         )
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_FLOAT,
-            maxOf(minBuffer, SAMPLE_RATE)
-        )
+        val pref = AudioInputRouteManager.MicPreference.fromId(store.micPreference)
+        activeMicPref = pref
+        val routeManager = AudioInputRouteManager(applicationContext)
+        // Best-effort BT SCO bring-up for the Bluetooth preference; SCO
+        // support varies by OEM, so failures fall back to the default route.
+        routeManager.startBluetoothSco(pref)
+        val record = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .build()
+            )
+            .setBufferSizeInBytes(maxOf(minBuffer, SAMPLE_RATE))
+            .build()
         check(record.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
+        routeManager.resolveDevice(pref)?.let { record.setPreferredDevice(it) }
         audioRecord = record
 
         // The WAV is always written: it feeds diarization at stop. When the

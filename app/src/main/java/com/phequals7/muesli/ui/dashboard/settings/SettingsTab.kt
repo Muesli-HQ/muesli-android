@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.phequals7.muesli.audio.AudioInputRouteManager
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.meetings.MeetingTemplate
@@ -265,6 +266,10 @@ private fun VoiceNotesSettings(store: SharedStore) {
     var engineType by remember { mutableStateOf(store.engineType) }
     var keepMicReady by remember { mutableStateOf(store.keepMicReady) }
     var bubbleEnabled by remember { mutableStateOf(store.bubbleEnabled) }
+    var micPreference by remember {
+        mutableStateOf(AudioInputRouteManager.MicPreference.fromId(store.micPreference))
+    }
+    val routeManager = remember { AudioInputRouteManager(context) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
@@ -287,6 +292,18 @@ private fun VoiceNotesSettings(store: SharedStore) {
                 selected = engineType == "mock",
                 onClick = { engineType = "mock"; store.engineType = "mock" }
             )
+        }
+
+        SettingsCard {
+            Text("Recording Microphone", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            AudioInputRouteManager.MicPreference.entries.forEach { option ->
+                ChoiceRow(
+                    title = option.label,
+                    subtitle = micPreferenceSubtitle(routeManager, option),
+                    selected = micPreference == option,
+                    onClick = { micPreference = option; store.micPreference = option.id }
+                )
+            }
         }
 
         SettingsCard {
@@ -510,6 +527,18 @@ private fun DictionarySettings(store: SharedStore) {
             }
         )
     }
+}
+
+private fun micPreferenceSubtitle(
+    routeManager: AudioInputRouteManager,
+    option: AudioInputRouteManager.MicPreference,
+): String = when (option) {
+    AudioInputRouteManager.MicPreference.AUTO -> "Follows the system default route"
+    AudioInputRouteManager.MicPreference.PHONE -> "Always uses the built-in phone microphone"
+    AudioInputRouteManager.MicPreference.BLUETOOTH ->
+        if (routeManager.isAvailable(option)) "Connected — uses the Bluetooth mic (e.g. AirPods)" else "Not connected — falls back to the phone mic"
+    AudioInputRouteManager.MicPreference.USB ->
+        if (routeManager.isAvailable(option)) "Connected — uses the external USB microphone" else "Not connected — falls back to the phone mic"
 }
 
 // ─────────────────────── Models ───────────────────────
