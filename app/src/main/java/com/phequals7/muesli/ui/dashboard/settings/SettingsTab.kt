@@ -293,7 +293,7 @@ private fun VoiceNotesSettings(store: SharedStore) {
             Text("Keyboard", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             ToggleRow(
                 title = "Keep mic ready",
-                subtitle = "Muesli Keyboard starts listening as soon as it opens.",
+                subtitle = "The keyboard prewarms the speech model when it opens — recording still only starts when you tap the mic.",
                 checked = keepMicReady,
                 onCheckedChange = { keepMicReady = it; store.keepMicReady = it }
             )

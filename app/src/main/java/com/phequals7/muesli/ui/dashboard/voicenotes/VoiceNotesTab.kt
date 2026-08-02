@@ -257,7 +257,7 @@ fun VoiceNotesTab(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Keep mic ready", color = colors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Muesli Keyboard starts listening as soon as it opens.",
+                            "The keyboard prewarms when it opens — recording starts only when you tap the mic.",
                             color = colors.textSecondary,
                             fontSize = 12.sp
                         )

@@ -69,13 +69,16 @@ class MuesliInputMethodService : InputMethodService(), LifecycleOwner, SavedStat
         super.onStartInputView(info, restarting)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
 
-        // "Keep mic ready" (iOS session-mode parity): start dictation as soon
-        // as the keyboard opens, if the user opted in and mic access is granted.
+        // "Keep mic ready" (iOS session-mode parity): prewarm the recognizer
+        // as soon as the keyboard opens so recording starts instantly — but
+        // capture only begins on an explicit tap of the mic button. The mic
+        // is never hot without the user asking for it.
         val store = com.phequals7.muesli.data.SharedStore(this)
         val micGranted = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED
         if (store.keepMicReady && micGranted && keyboardController.state == KeyboardState.IDLE) {
-            keyboardController.startDictation()
+            com.phequals7.muesli.engine.SherpaRecognizerHolder.prewarmAsync(this)
+            keyboardController.showReadyStatus()
         }
     }
 

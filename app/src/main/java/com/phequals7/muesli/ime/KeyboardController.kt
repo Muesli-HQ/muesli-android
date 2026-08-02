@@ -99,6 +99,12 @@ class KeyboardController(
         transcriptionText = ""
     }
 
+    /** "Keep mic ready" state: the model is prewarmed and recording would
+     * start instantly, but capture only begins on an explicit tap. */
+    fun showReadyStatus() {
+        if (state == KeyboardState.IDLE) statusText = "Ready — tap mic to record"
+    }
+
     fun clearLastInserted() {
         if (lastInsertedLength > 0) {
             textDeleter(lastInsertedLength)
