@@ -35,7 +35,6 @@ import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
-import com.phequals7.muesli.engine.SystemSpeechRecognizerEngine
 import com.phequals7.muesli.engine.TranscriptionEngine
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModels
@@ -239,9 +238,8 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
 
         val newEngine = when (store.engineType) {
-            "system" -> SystemSpeechRecognizerEngine(this)
-            "sherpa" -> SherpaOnnxEngine(this)
-            else -> MockTranscriptionEngine()
+            "mock" -> MockTranscriptionEngine()
+            else -> SherpaOnnxEngine(this)
         }.also { engine = it }
         newEngine.setAmplitudeListener { level -> uiState.inputLevel.value = level }
 

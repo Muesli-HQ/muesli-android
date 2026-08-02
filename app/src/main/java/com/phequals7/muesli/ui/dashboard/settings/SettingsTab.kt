@@ -277,14 +277,8 @@ private fun VoiceNotesSettings(store: SharedStore) {
             ChoiceRow(
                 title = "On-Device (Parakeet)",
                 subtitle = "Sherpa-ONNX, fully local & private",
-                selected = engineType == "sherpa",
+                selected = engineType != "mock",
                 onClick = { engineType = "sherpa"; store.engineType = "sherpa" }
-            )
-            ChoiceRow(
-                title = "System Speech Recognizer",
-                subtitle = "Uses the Android SDK recognizer",
-                selected = engineType == "system",
-                onClick = { engineType = "system"; store.engineType = "system" }
             )
             ChoiceRow(
                 title = "Mock Engine (Offline Sandbox)",

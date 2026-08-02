@@ -48,7 +48,6 @@ import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
-import com.phequals7.muesli.engine.SystemSpeechRecognizerEngine
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
@@ -114,9 +113,8 @@ fun VoiceNotesTab(
         recordingStartedAt = System.currentTimeMillis()
 
         val engine = when (store.engineType) {
-            "system" -> SystemSpeechRecognizerEngine(context)
-            "sherpa" -> SherpaOnnxEngine(context)
-            else -> MockTranscriptionEngine()
+            "mock" -> MockTranscriptionEngine()
+            else -> SherpaOnnxEngine(context)
         }
         engine.setAmplitudeListener { level -> inputLevel = level }
         activeEngine = engine
@@ -848,7 +846,6 @@ private fun formatWordCount(words: Int): String = when {
 }
 
 private fun engineDisplayName(engineType: String, modelName: String): String = when (engineType) {
-    "sherpa" -> "$modelName · on-device"
-    "system" -> "System Speech Recognizer"
-    else -> "Mock Engine (sandbox)"
+    "mock" -> "Mock Engine (sandbox)"
+    else -> "$modelName · on-device"
 }

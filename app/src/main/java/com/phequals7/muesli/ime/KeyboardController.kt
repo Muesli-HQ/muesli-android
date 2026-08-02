@@ -10,7 +10,6 @@ import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
-import com.phequals7.muesli.engine.SystemSpeechRecognizerEngine
 import com.phequals7.muesli.engine.TranscriptionEngine
 import com.phequals7.muesli.utils.CustomWordMatcher
 import com.phequals7.muesli.utils.FillerWordFilter
@@ -57,9 +56,8 @@ class KeyboardController(
 
     fun startDictation() {
         val engine = when (store.engineType) {
-            "system" -> SystemSpeechRecognizerEngine(context)
-            "sherpa" -> SherpaOnnxEngine(context)
-            else -> MockTranscriptionEngine()
+            "mock" -> MockTranscriptionEngine()
+            else -> SherpaOnnxEngine(context)
         }.also { currentEngine = it }
         engine.setAmplitudeListener { level -> inputLevel = level }
 

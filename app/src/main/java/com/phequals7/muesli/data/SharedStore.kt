@@ -21,7 +21,7 @@ class SharedStore(private val context: Context) {
     companion object {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         private const val KEY_ONBOARDING_USE_CASE = "onboarding_use_case"
-        private const val KEY_ENGINE_TYPE = "engine_type" // "system" or "mock"
+        private const val KEY_ENGINE_TYPE = "engine_type" // "sherpa" or "mock"
         private const val KEY_FILLER_WORD_REMOVAL = "filler_word_removal"
         private const val KEY_CUSTOM_DICTIONARY = "custom_dictionary"
         private const val KEY_USER_PROFILE_NAME = "user_profile_name"
@@ -53,7 +53,9 @@ class SharedStore(private val context: Context) {
         set(value) = prefs.edit().putString(KEY_ONBOARDING_USE_CASE, value).apply()
 
     var engineType: String
-        get() = prefs.getString(KEY_ENGINE_TYPE, "sherpa") ?: "sherpa"
+        // Legacy "system" (Android SpeechRecognizer, removed: off-device and
+        // auto-endpointing) maps to the on-device sherpa engine.
+        get() = prefs.getString(KEY_ENGINE_TYPE, "sherpa").let { if (it == "system") "sherpa" else it ?: "sherpa" }
         set(value) = prefs.edit().putString(KEY_ENGINE_TYPE, value).apply()
 
     var isFillerWordRemovalEnabled: Boolean
