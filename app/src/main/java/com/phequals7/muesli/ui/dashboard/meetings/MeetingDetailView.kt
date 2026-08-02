@@ -31,6 +31,7 @@ import com.phequals7.muesli.theme.MuesliTheme
 import com.phequals7.muesli.ui.dashboard.voicenotes.MuesliSurfaceCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,6 +71,10 @@ fun MeetingDetailView(
     }
 
     val template = MeetingTemplate.fromId(meeting.templateId)
+    // Retained meeting audio file, if audio retention kept one on disk.
+    val audioFile = remember(meeting.audioFileName) {
+        meeting.audioFileName?.let { File(context.filesDir, "meetings/$it") }
+    }
     val dateLine = buildString {
         append(SimpleDateFormat("d MMM yyyy 'at' h:mm a", Locale.getDefault()).format(Date(meeting.createdAt)))
         if (meeting.startedAt != null && meeting.endedAt != null) {
@@ -141,6 +146,11 @@ fun MeetingDetailView(
                         )
                     }
                 }
+            }
+
+            // Retained meeting audio playback (only when a WAV was actually kept)
+            if (audioFile != null && audioFile.exists()) {
+                item { MeetingAudioPlayer(audioFile) }
             }
 
             // Section picker: Transcript / Notes
