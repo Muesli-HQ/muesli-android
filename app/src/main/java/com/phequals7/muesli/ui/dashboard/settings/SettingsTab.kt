@@ -884,7 +884,7 @@ internal fun SpeechModelCard(
                         text = when {
                             isDownloading && progress?.extracting == true -> "Extracting ${progress!!.currentFile}…"
                             isDownloading && progress != null ->
-                                "Downloading · ${modelManager.formatBytes(progress!!.totalBytesDone)} / ${modelManager.formatBytes(progress!!.totalBytes)}"
+                                "${(progress!!.fraction * 100).toInt()}% · ${modelManager.formatBytes(progress!!.totalBytesDone)} of ${modelManager.formatBytes(progress!!.totalBytes)}"
                             isDownloaded -> "Downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} on disk"
                             modelManager.downloadedBytes() > 0 ->
                                 "Partially downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} / ${modelManager.formatBytes(model.totalSizeBytes)}"

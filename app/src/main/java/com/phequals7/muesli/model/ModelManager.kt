@@ -13,6 +13,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.UnknownHostException
 
 /**
  * Downloads and manages one on-device sherpa-onnx ASR model from the
@@ -88,16 +89,8 @@ class ModelManager(
             val part = File(modelDir, "${file.name}.part")
             var existing = if (part.exists()) part.length() else 0L
 
-            val conn = URL(file.url).openConnection() as HttpURLConnection
+            val conn = openWithFallback(file.url, rangeFrom = existing)
             try {
-                conn.connectTimeout = 30_000
-                conn.readTimeout = 60_000
-                conn.instanceFollowRedirects = true
-                if (existing > 0) {
-                    conn.setRequestProperty("Range", "bytes=$existing-")
-                }
-                conn.connect()
-
                 val code = conn.responseCode
                 if (code == HttpURLConnection.HTTP_OK && existing > 0) {
                     // Server ignored the Range request; restart this file.
@@ -176,6 +169,29 @@ class ModelManager(
         }
         check(wanted.isEmpty()) { "Archive is missing: ${wanted.joinToString()}" }
         archive.delete()
+    }
+
+    /**
+     * Opens a connection, retrying once against hf-mirror.com when
+     * huggingface.co cannot be resolved — some ISPs/regions block or
+     * hijack its DNS, which otherwise presents as a stalled download.
+     */
+    private fun openWithFallback(url: String, rangeFrom: Long): HttpURLConnection {
+        fun open(u: String): HttpURLConnection {
+            val c = URL(u).openConnection() as HttpURLConnection
+            c.connectTimeout = 15_000
+            c.readTimeout = 60_000
+            c.instanceFollowRedirects = true
+            if (rangeFrom > 0) c.setRequestProperty("Range", "bytes=$rangeFrom-")
+            return c
+        }
+        return try {
+            open(url).also { it.connect() }
+        } catch (e: UnknownHostException) {
+            val mirror = url.replace("huggingface.co", "hf-mirror.com")
+            if (mirror == url) throw e
+            open(mirror).also { it.connect() }
+        }
     }
 
     fun deleteModel() {

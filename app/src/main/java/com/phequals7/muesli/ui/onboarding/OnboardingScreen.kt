@@ -315,7 +315,7 @@ private fun ModelStep(
                     downloaded -> "${selected.shortName} is ready"
                     downloading && progress?.extracting == true -> "Extracting…"
                     downloading && progress != null ->
-                        "Downloading · ${manager.formatBytes(progress!!.totalBytesDone)} / ${manager.formatBytes(progress!!.totalBytes)}"
+                        "${(progress!!.fraction * 100).toInt()}% · ${manager.formatBytes(progress!!.totalBytesDone)} of ${manager.formatBytes(progress!!.totalBytes)}"
                     else -> "${selected.shortName} needs a one-time download"
                 },
                 color = if (downloaded) colors.syncGreen else colors.textPrimary,
