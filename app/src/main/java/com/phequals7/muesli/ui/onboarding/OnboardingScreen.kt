@@ -418,11 +418,12 @@ private fun TestDictationStep(
                 MuesliInlineWaveform(
                     mode = when {
                         transcribing -> MuesliWaveformMode.Waiting
-                        recording -> MuesliWaveformMode.Level
-                        else -> MuesliWaveformMode.Waiting
+                        else -> MuesliWaveformMode.Level
                     },
                     color = if (transcribing) colors.transcribing else colors.brandBlue,
-                    level = if (recording) level else null,
+                    // Idle shows a flat static line (level 0) — the shimmer
+                    // made it look like recording had already started.
+                    level = if (recording) level else 0f,
                     barCount = 32,
                     modifier = Modifier
                         .fillMaxWidth()

@@ -146,6 +146,10 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val recording = AtomicBoolean(false)
     private val cancelled = AtomicBoolean(false)
+    /** Prevents partial re-decode backlog: on slow chips a full re-decode of
+     * the accumulated audio takes longer than the 4s interval, so queued
+     * partials would starve the final decode indefinitely. */
+    private val partialBusy = AtomicBoolean(false)
 
     /** Engine callbacks always land on the main thread (callers may Toasts/UI). */
     private fun emitPartial(text: String) = mainHandler.post { onPartial?.invoke(text) }
@@ -300,15 +304,23 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
 
     /** Re-decodes the audio captured so far to emulate a live partial result. */
     private fun schedulePartial() {
+        if (!partialBusy.compareAndSet(false, true)) return
         val snapshot = synchronized(lock) { chunks.toList() }
-        if (snapshot.sumOf { it.size } < SAMPLE_RATE) return
+        if (snapshot.sumOf { it.size } < SAMPLE_RATE) {
+            partialBusy.set(false)
+            return
+        }
         executor.execute {
-            if (!recording.get() || cancelled.get()) return@execute
             try {
-                val text = decode(snapshot)
-                if (!cancelled.get() && text.isNotBlank()) emitPartial(text)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Partial decode failed: ${t.message}")
+                if (!recording.get() || cancelled.get()) return@execute
+                try {
+                    val text = decode(snapshot)
+                    if (!cancelled.get() && text.isNotBlank()) emitPartial(text)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Partial decode failed: ${t.message}")
+                }
+            } finally {
+                partialBusy.set(false)
             }
         }
     }
