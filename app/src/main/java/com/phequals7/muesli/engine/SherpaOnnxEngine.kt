@@ -154,7 +154,15 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
 
     private var audioRecord: AudioRecord? = null
     private val lock = Object()
-    private var samples = FloatArray(0)
+
+    /**
+     * Captured audio as an append-only list of 100 ms chunks. The previous
+     * single-buffer + copyOf approach copied the entire recording every
+     * 100 ms (quadratic churn) and OOMed on devices with small heap caps
+     * (POCO C71, ~256 MB large-heap). sherpa's stream accepts multiple
+     * acceptWaveform calls, so no large concatenation is ever needed.
+     */
+    private val chunks = mutableListOf<FloatArray>()
     private var activeMicPref = AudioInputRouteManager.MicPreference.AUTO
     private val routeManager by lazy { AudioInputRouteManager(context) }
 
@@ -196,19 +204,19 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
     override fun stopListening() {
         if (!recording.compareAndSet(true, false)) return
         executor.execute {
-            val pcm = synchronized(lock) { samples }
+            val audio = synchronized(lock) { chunks.toList() }
             audioRecord?.stop()
             audioRecord?.release()
             audioRecord = null
             routeManager.stopBluetoothSco(activeMicPref)
 
             if (cancelled.get()) return@execute
-            if (pcm.size < SAMPLE_RATE / 2) {
+            if (audio.sumOf { it.size } < SAMPLE_RATE / 2) {
                 emitFinal("")
                 return@execute
             }
             try {
-                val text = decode(pcm)
+                val text = decode(audio)
                 if (!cancelled.get()) emitFinal(text)
             } catch (t: Throwable) {
                 Log.e(TAG, "Final decode failed", t)
@@ -227,7 +235,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
         audioRecord?.release()
         audioRecord = null
         routeManager.stopBluetoothSco(activeMicPref)
-        synchronized(lock) { samples = FloatArray(0) }
+        synchronized(lock) { chunks.clear() }
     }
 
     @SuppressLint("MissingPermission") // RECORD_AUDIO is granted before entry points reach here
@@ -267,9 +275,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
             val read = record.read(chunk, 0, chunk.size, AudioRecord.READ_BLOCKING)
             if (read <= 0) continue
             synchronized(lock) {
-                samples = samples.copyOf(samples.size + read).also {
-                    System.arraycopy(chunk, 0, it, samples.size, read)
-                }
+                chunks.add(chunk.copyOf(read))
             }
             publishLevel(chunk, read)
 
@@ -294,8 +300,8 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
 
     /** Re-decodes the audio captured so far to emulate a live partial result. */
     private fun schedulePartial() {
-        val snapshot = synchronized(lock) { samples }
-        if (snapshot.size < SAMPLE_RATE) return
+        val snapshot = synchronized(lock) { chunks.toList() }
+        if (snapshot.sumOf { it.size } < SAMPLE_RATE) return
         executor.execute {
             if (!recording.get() || cancelled.get()) return@execute
             try {
@@ -307,11 +313,15 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
         }
     }
 
-    private fun decode(pcm: FloatArray): String {
+    /** Feeds chunks into the recognizer stream one by one (no concatenation)
+     * and decodes. */
+    private fun decode(audio: List<FloatArray>): String {
         val recognizer = SherpaRecognizerHolder.get(context)
         val stream = recognizer.createStream()
         return try {
-            stream.acceptWaveform(pcm, SAMPLE_RATE)
+            for (chunk in audio) {
+                stream.acceptWaveform(chunk, SAMPLE_RATE)
+            }
             recognizer.decode(stream)
             recognizer.getResult(stream).text.trim()
         } finally {

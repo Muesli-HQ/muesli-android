@@ -90,7 +90,11 @@ class MeetingRecorderService : Service() {
     private var wavBytesWritten = 0L
 
     private val lock = Object()
-    private var currentChunk = FloatArray(0)
+    // Fixed-chunk fallback accumulation as append-only parts (concatenated
+    // once at rotation — the old per-100ms copyOf churned quadratically and
+    // contributed to OOM on low-heap devices). VAD mode leaves this empty.
+    private val currentChunkParts = mutableListOf<FloatArray>()
+    private var currentChunkSize = 0
     private var currentChunkStartSec = 0f
     private var samplesCaptured = 0L
     private var vad: Vad? = null
@@ -136,7 +140,8 @@ class MeetingRecorderService : Service() {
         startedAtMs = System.currentTimeMillis()
         transcriptParts.clear()
         synchronized(lock) {
-            currentChunk = FloatArray(0)
+            currentChunkParts.clear()
+            currentChunkSize = 0
             currentChunkStartSec = 0f
             samplesCaptured = 0L
         }
@@ -222,10 +227,11 @@ class MeetingRecorderService : Service() {
                     }
                 }
                 synchronized(lock) {
-                    if (currentChunk.isNotEmpty()) {
+                    if (currentChunkSize > 0) {
                         val endSec = samplesCaptured.toFloat() / SAMPLE_RATE
-                        finishedChunks.offer(TimedChunk(currentChunk, currentChunkStartSec, endSec))
-                        currentChunk = FloatArray(0)
+                        finishedChunks.offer(TimedChunk(concatParts(), currentChunkStartSec, endSec))
+                        currentChunkParts.clear()
+                        currentChunkSize = 0
                     }
                 }
                 drainChunkQueue()
@@ -475,19 +481,19 @@ class MeetingRecorderService : Service() {
                     }
                 } else {
                     synchronized(lock) {
-                        if (currentChunk.isEmpty()) currentChunkStartSec = frameStartSec
-                        currentChunk = currentChunk.copyOf(currentChunk.size + read).also {
-                            System.arraycopy(frame, 0, it, currentChunk.size, read)
-                        }
-                        if (currentChunk.size >= SAMPLE_RATE * CHUNK_SECONDS) {
+                        if (currentChunkSize == 0) currentChunkStartSec = frameStartSec
+                        currentChunkParts.add(frame)
+                        currentChunkSize += read
+                        if (currentChunkSize >= SAMPLE_RATE * CHUNK_SECONDS) {
                             finishedChunks.offer(
                                 TimedChunk(
-                                    currentChunk,
+                                    concatParts(),
                                     currentChunkStartSec,
-                                    currentChunkStartSec + currentChunk.size.toFloat() / SAMPLE_RATE
+                                    currentChunkStartSec + currentChunkSize.toFloat() / SAMPLE_RATE
                                 )
                             )
-                            currentChunk = FloatArray(0)
+                            currentChunkParts.clear()
+                            currentChunkSize = 0
                         }
                     }
                 }
@@ -507,6 +513,17 @@ class MeetingRecorderService : Service() {
                 )
             }
         }.also { it.start() }
+    }
+
+    /** Concatenates the fallback chunk parts once (call with [lock] held). */
+    private fun concatParts(): FloatArray {
+        val out = FloatArray(currentChunkSize)
+        var offset = 0
+        for (part in currentChunkParts) {
+            System.arraycopy(part, 0, out, offset, part.size)
+            offset += part.size
+        }
+        return out
     }
 
     /** Pops every completed speech segment out of the VAD into the decode
