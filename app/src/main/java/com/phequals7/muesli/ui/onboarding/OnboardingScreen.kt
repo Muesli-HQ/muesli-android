@@ -279,7 +279,17 @@ private fun ModelStep(
     val colors = MuesliTheme.colors
     val scope = rememberCoroutineScope()
 
-    var selected by remember { mutableStateOf(SpeechModels.byId(store.selectedModelId)) }
+    // Fresh installs (no stored selection, nothing downloaded) preselect
+    // the 110M — it runs well on low-end chips, as does iOS's default.
+    // Existing installs keep whatever they already have.
+    var selected by remember {
+        mutableStateOf(
+            if (store.selectedModelId.isBlank() &&
+                SpeechModels.all.none { ModelManager(context.applicationContext, it).isDownloaded() }
+            ) SpeechModels.PARAKEET_110M
+            else SpeechModels.byId(store.selectedModelId)
+        )
+    }
     val manager = remember(selected.id) { ModelManager(context.applicationContext, selected) }
     var downloaded by remember(selected.id) { mutableStateOf(manager.isDownloaded()) }
     var downloading by remember(selected.id) { mutableStateOf(false) }
@@ -289,7 +299,7 @@ private fun ModelStep(
 
     OnboardingPage(
         step = OnboardingStep.MODEL, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Pick the on-device model that transcribes your voice. It downloads once and runs fully offline.",
+        subtitle = "Pick the on-device model that transcribes your voice. The recommended one runs well on any phone; the larger model is more accurate but needs a fast chip. Downloads once, runs fully offline.",
         onBack = onBack,
         primaryLabel = "Continue",
         primaryEnabled = downloaded,
@@ -298,7 +308,7 @@ private fun ModelStep(
         OnboardingCard {
             SpeechModels.all.forEach { model: SpeechModel ->
                 OnboardingChoiceRow(
-                    title = model.displayName,
+                    title = if (model == SpeechModels.PARAKEET_110M) "${model.displayName} · recommended" else model.displayName,
                     subtitle = "${model.capabilityLabel} · ${manager.formatBytes(model.totalSizeBytes)}",
                     selected = model.id == selected.id,
                     onClick = {
