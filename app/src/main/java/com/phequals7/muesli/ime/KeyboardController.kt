@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
-import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
 import com.phequals7.muesli.engine.TranscriptionEngine
 import com.phequals7.muesli.utils.CustomWordMatcher
@@ -55,10 +54,7 @@ class KeyboardController(
     private var recordingStartedAt = 0L
 
     fun startDictation() {
-        val engine = when (store.engineType) {
-            "mock" -> MockTranscriptionEngine()
-            else -> SherpaOnnxEngine(context)
-        }.also { currentEngine = it }
+        val engine = SherpaOnnxEngine(context).also { currentEngine = it }
         engine.setAmplitudeListener { level -> inputLevel = level }
 
         state = KeyboardState.RECORDING

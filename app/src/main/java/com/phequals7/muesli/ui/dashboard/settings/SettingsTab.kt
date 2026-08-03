@@ -263,7 +263,6 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 private fun VoiceNotesSettings(store: SharedStore) {
     val context = LocalContext.current
     val colors = MuesliTheme.colors
-    var engineType by remember { mutableStateOf(store.engineType) }
     var keepMicReady by remember { mutableStateOf(store.keepMicReady) }
     var bubbleEnabled by remember { mutableStateOf(store.bubbleEnabled) }
     var micPreference by remember {
@@ -272,22 +271,6 @@ private fun VoiceNotesSettings(store: SharedStore) {
     val routeManager = remember { AudioInputRouteManager(context) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
-        SettingsCard {
-            Text("Speech Engine", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            ChoiceRow(
-                title = "On-Device (Parakeet)",
-                subtitle = "Sherpa-ONNX, fully local & private",
-                selected = engineType != "mock",
-                onClick = { engineType = "sherpa"; store.engineType = "sherpa" }
-            )
-            ChoiceRow(
-                title = "Mock Engine (Offline Sandbox)",
-                subtitle = "Simulates recognition for testing",
-                selected = engineType == "mock",
-                onClick = { engineType = "mock"; store.engineType = "mock" }
-            )
-        }
-
         SettingsCard {
             Text("Recording Microphone", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             AudioInputRouteManager.MicPreference.entries.forEach { option ->

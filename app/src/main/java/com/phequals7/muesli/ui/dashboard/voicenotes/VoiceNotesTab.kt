@@ -46,7 +46,6 @@ import com.phequals7.muesli.audio.AudioInputRouteManager
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.data.entity.RecordingSession
-import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
@@ -112,10 +111,7 @@ fun VoiceNotesTab(
         elapsedSeconds = 0
         recordingStartedAt = System.currentTimeMillis()
 
-        val engine = when (store.engineType) {
-            "mock" -> MockTranscriptionEngine()
-            else -> SherpaOnnxEngine(context)
-        }
+        val engine = SherpaOnnxEngine(context)
         engine.setAmplitudeListener { level -> inputLevel = level }
         activeEngine = engine
 
@@ -132,7 +128,7 @@ fun VoiceNotesTab(
                         store.insertDictationResult(
                             DictationResult(
                                 text = processed,
-                                engineIdentifier = store.engineType,
+                                engineIdentifier = SpeechModels.selected(context).id,
                                 durationMs = System.currentTimeMillis() - recordingStartedAt
                             )
                         )
@@ -359,7 +355,7 @@ fun VoiceNotesTab(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                engineDisplayName(store.engineType, SpeechModels.selected(context).shortName),
+                                engineDisplayName(SpeechModels.selected(context).shortName),
                                 color = colors.textSecondary,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -845,7 +841,4 @@ private fun formatWordCount(words: Int): String = when {
     else -> "$words"
 }
 
-private fun engineDisplayName(engineType: String, modelName: String): String = when (engineType) {
-    "mock" -> "Mock Engine (sandbox)"
-    else -> "$modelName · on-device"
-}
+private fun engineDisplayName(modelName: String): String = "$modelName · on-device"

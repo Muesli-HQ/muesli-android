@@ -33,7 +33,6 @@ import com.phequals7.muesli.MainActivity
 import com.phequals7.muesli.R
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.DictationResult
-import com.phequals7.muesli.engine.MockTranscriptionEngine
 import com.phequals7.muesli.engine.SherpaOnnxEngine
 import com.phequals7.muesli.engine.TranscriptionEngine
 import com.phequals7.muesli.model.ModelManager
@@ -237,10 +236,7 @@ class BubbleService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             return
         }
 
-        val newEngine = when (store.engineType) {
-            "mock" -> MockTranscriptionEngine()
-            else -> SherpaOnnxEngine(this)
-        }.also { engine = it }
+        val newEngine = SherpaOnnxEngine(this).also { engine = it }
         newEngine.setAmplitudeListener { level -> uiState.inputLevel.value = level }
 
         uiState.state.value = BubbleState.RECORDING
