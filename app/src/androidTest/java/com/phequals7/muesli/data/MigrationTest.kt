@@ -85,6 +85,9 @@ class MigrationTest {
             )
             db.execSQL("INSERT INTO dictation_results VALUES ('d1','r1',NULL,'hello from v1',1700000000000,'parakeet')")
             db.execSQL("INSERT INTO recording_sessions VALUES ('s1',NULL,'meeting','v1 meeting',1700000000000,NULL,NULL,'completed',NULL,NULL,'parakeet',NULL)")
+            // Without this Room sees user_version=0, treats the DB as fresh,
+            // and fails schema validation instead of running migrations.
+            db.version = 1
         }
     }
 
