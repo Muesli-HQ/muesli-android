@@ -793,52 +793,6 @@ fun MuesliSurfaceCard(
     )
 }
 
-// ─────────────────────────── stats ───────────────────────────
-
-private data class VoiceNoteStats(
-    val streakDays: Int,
-    val totalWords: Int,
-    val wpm: Int,
-    val meetingCount: Int,
-)
-
-private fun computeStats(
-    dictations: List<DictationResult>,
-    meetings: List<RecordingSession>,
-): VoiceNoteStats {
-    val totalWords = dictations.sumOf { wordCount(it.text) }
-
-    val timedWords = dictations.filter { it.durationMs > 0 }.sumOf { wordCount(it.text) }
-    val timedMinutes = dictations.sumOf { it.durationMs } / 60_000.0
-    val wpm = if (timedMinutes > 0) (timedWords / timedMinutes).roundToInt() else 0
-
-    // Streak: consecutive day buckets with >= 1 note, ending today or yesterday
-    val dayMs = 86_400_000L
-    val days = dictations.map { it.createdAt / dayMs }.toSet()
-    var streak = 0
-    var cursor = System.currentTimeMillis() / dayMs
-    if (cursor !in days) cursor-- // allow "yesterday" as streak anchor
-    while (cursor in days) {
-        streak++
-        cursor--
-    }
-
-    return VoiceNoteStats(
-        streakDays = streak,
-        totalWords = totalWords,
-        wpm = wpm,
-        meetingCount = meetings.count { it.kind == "meeting" },
-    )
-}
-
-private fun wordCount(text: String): Int =
-    text.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
-
-private fun formatWordCount(words: Int): String = when {
-    words >= 1_000_000 -> "%.1fM".format(words / 1_000_000.0)
-    words >= 10_000 -> "%.1fk".format(words / 1_000.0)
-    words >= 1_000 -> "%,d".format(words)
-    else -> "$words"
-}
+// ─────────────────────────── stats (see VoiceNoteStats.kt) ───────────────────────────
 
 private fun engineDisplayName(modelName: String): String = "$modelName · on-device"

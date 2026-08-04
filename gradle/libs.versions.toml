@@ -19,6 +19,7 @@ okhttp = "4.12.0"
 browser = "1.8.0"
 kotlinxSerializationJson = "1.7.3"
 commonsCompress = "1.27.1"
+mockwebserver = "4.12.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -50,6 +51,8 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commonsCompress" }
+mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mockwebserver" }
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

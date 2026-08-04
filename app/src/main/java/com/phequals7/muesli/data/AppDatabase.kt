@@ -58,6 +58,9 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Exposed for migration tests. */
+        internal val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -65,7 +68,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "muesli_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(*MIGRATIONS)
                 .fallbackToDestructiveMigration() // Useful during scaffolding iteration
                 .build()
                 INSTANCE = instance

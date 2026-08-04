@@ -5,11 +5,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
-import java.io.BufferedInputStream
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -26,10 +22,18 @@ import java.net.UnknownHostException
  * Downloads are resumable: completed files are skipped and a partial file
  * resumes from its `.part` marker via an HTTP Range request.
  */
-class ModelManager(
-    private val context: Context,
-    val model: SpeechModel = SpeechModels.selected(context),
+class ModelManager private constructor(
+    private val context: Context?,
+    val model: SpeechModel,
+    private val testRootDir: File?,
 ) {
+
+    constructor(context: Context, model: SpeechModel = SpeechModels.selected(context)) :
+        this(context, model, null)
+
+    /** Test-only: serves a model from an arbitrary directory without a Context. */
+    internal constructor(model: SpeechModel, testRootDir: File) :
+        this(null, model, testRootDir)
 
     data class ModelFile(val name: String, val url: String, val sizeBytes: Long)
 
@@ -44,7 +48,7 @@ class ModelManager(
     }
 
     val modelDir: File
-        get() = File(context.filesDir, "models/${model.id}")
+        get() = testRootDir ?: File(context!!.filesDir, "models/${model.id}")
 
     fun modelFile(name: String): File = File(modelDir, name)
 
@@ -131,7 +135,11 @@ class ModelManager(
         }
 
         if (model.packagedAsTarBz2) {
-            extractTarBz2(modelFile(model.files.single().name)) { current ->
+            ModelArchive.extractTarBz2(
+                archive = modelFile(model.files.single().name),
+                outDir = modelDir,
+                wanted = model.requiredOutputs.toSet(),
+            ) { current ->
                 onProgress(
                     DownloadProgress(
                         currentFile = current,
@@ -143,32 +151,6 @@ class ModelManager(
                 )
             }
         }
-    }
-
-    /**
-     * Extracts the files listed in [SpeechModel.requiredOutputs] from a
-     * tar.bz2 archive into [modelDir], then deletes the archive.
-     */
-    private fun extractTarBz2(archive: File, onEntry: (String) -> Unit) {
-        check(archive.exists()) { "Missing archive ${archive.name}" }
-        val wanted = model.requiredOutputs.toMutableSet()
-        TarArchiveInputStream(
-            BZip2CompressorInputStream(BufferedInputStream(FileInputStream(archive)))
-        ).use { tar ->
-            while (true) {
-                val entry = tar.nextEntry ?: break
-                val name = entry.name.substringAfterLast('/')
-                if (name !in wanted) continue
-                onEntry(name)
-                val out = modelFile(name)
-                FileOutputStream(out).use { output ->
-                    tar.copyTo(output, bufferSize = 256 * 1024)
-                }
-                wanted.remove(name)
-            }
-        }
-        check(wanted.isEmpty()) { "Archive is missing: ${wanted.joinToString()}" }
-        archive.delete()
     }
 
     /**
